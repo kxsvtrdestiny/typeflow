@@ -1,0 +1,199 @@
+import { test, expect } from '@playwright/test'
+import type { Page } from '@playwright/test'
+
+async function fixture(page: Page, text: string, language: 'zh' | 'en' = 'en') {
+  await page.addInitScript(({ content, lang }) => {
+    const now = new Date().toISOString()
+    localStorage.setItem('typeflow.library', JSON.stringify({ version: 1, data: [{
+      id: 'custom-fixed', name: '输入测试', description: '', language: lang, difficulty: 'beginner', isDefault: false,
+      createdAt: now, updatedAt: now, articles: [
+        { id: 'fixed-a', title: '固定文本', content, difficulty: 'beginner', createdAt: now, updatedAt: now },
+        { id: 'fixed-b', title: '第二篇', content: '第二篇不同的文章。', difficulty: 'beginner', createdAt: now, updatedAt: now },
+      ],
+    }] }))
+  }, { content: text, lang: language })
+  await page.goto('/#/practice?themeId=custom-fixed&articleId=fixed-a')
+  await page.getByRole('button', { name: '开始训练', exact: true }).click()
+}
+async function aligned(page: Page) {
+  const pairs = await page.locator('[data-answer-index]').evaluateAll((nodes) => nodes.map((node) => {
+    const index = node.getAttribute('data-answer-index')
+    const answer = node.getBoundingClientRect()
+    const input = document.querySelector(`[data-input-index="${index}"]`)!.getBoundingClientRect()
+    return { dx: Math.abs(answer.x - input.x), dy: input.y - answer.y, dw: Math.abs(answer.width - input.width) }
+  }))
+  for (const pair of pairs) { expect(pair.dx).toBeLessThan(1); expect(pair.dw).toBeLessThan(1); expect(pair.dy).toBe(38) }
+}
+
+test('English physical keys, strict case, spaces, punctuation, correction, newline and completion', async ({ page }) => {
+  await fixture(page, 'Hello world!\nOK')
+  const input = page.getByRole('textbox', { name: '训练输入' })
+  await input.pressSequentially('hello X', { delay: 10 })
+  await expect(page.locator('[data-answer-index="0"]')).toHaveClass(/incorrect/)
+  await expect(page.locator('[data-input-index="6"]')).toHaveClass(/incorrect/)
+  await input.press('Backspace')
+  await expect(page.locator('[data-input-index="6"]')).toHaveClass(/pending/)
+  await input.press('ControlOrMeta+Home')
+  await input.press('Delete')
+  await input.pressSequentially('H')
+  await input.press('ControlOrMeta+End')
+  await input.pressSequentially('world!')
+  await input.press('Enter')
+  await input.pressSequentially('OK')
+  await expect(page.locator('[data-training-status]')).toHaveAttribute('data-training-status', 'completed')
+  await expect(input).toBeDisabled()
+  await expect(page.getByTestId('training-counts')).toContainText('正确 15 · 错误 0')
+  await aligned(page)
+})
+
+test('Chinese input, backspace, rapid input, pause, resume, restart and article switch', async ({ page }) => {
+  await fixture(page, '你好，世界。继续练习。', 'zh')
+  const input = page.getByRole('textbox', { name: '训练输入' })
+  await input.pressSequentially('你错')
+  await expect(page.getByTestId('training-counts')).toContainText('错误 1')
+  await input.press('Backspace')
+  await input.pressSequentially('好，')
+  await expect(page.getByTestId('training-counts')).toContainText('正确 3 · 错误 0')
+  await page.getByRole('button', { name: '暂停', exact: true }).click()
+  await expect(input).toBeDisabled()
+  await page.getByRole('button', { name: '继续', exact: true }).click()
+  await expect(input).toBeFocused()
+  await input.pressSequentially('世界。')
+  await page.getByRole('button', { name: '重新开始', exact: true }).click()
+  await expect(input).toHaveValue('')
+  await expect(page.getByTestId('training-counts')).toContainText('已输入 0')
+  await page.getByRole('button', { name: '开始训练', exact: true }).click()
+  await input.pressSequentially('你')
+  page.once('dialog', (dialog) => dialog.accept())
+  await page.getByRole('combobox', { name: '训练文章' }).selectOption('fixed-b')
+  await expect(page.getByTestId('training-counts')).toContainText('已输入 0')
+  await expect(input).toHaveValue('')
+  await expect(page.locator('[data-training-status]')).toHaveAttribute('data-training-status', 'idle')
+})
+
+test('simulated Chinese candidate events never judge pinyin or double-submit candidates', async ({ page }) => {
+  await fixture(page, '你好，世界。', 'zh')
+  const input = page.getByRole('textbox', { name: '训练输入' })
+  await input.evaluate((node: HTMLTextAreaElement) => {
+    node.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }))
+    node.value = 'nihao'
+    node.dispatchEvent(new CompositionEvent('compositionupdate', { data: 'nihao', bubbles: true }))
+    node.dispatchEvent(new InputEvent('input', { data: 'nihao', inputType: 'insertCompositionText', isComposing: true, bubbles: true }))
+  })
+  await expect(page.getByTestId('training-counts')).toContainText('已输入 0')
+  await expect(page.locator('.composition-preview')).toContainText('nihao')
+  await expect(page.locator('.typing-cell.incorrect')).toHaveCount(0)
+  await input.evaluate((node: HTMLTextAreaElement) => {
+    node.value = '你好'
+    node.dispatchEvent(new CompositionEvent('compositionend', { data: '你好', bubbles: true }))
+    node.dispatchEvent(new InputEvent('input', { data: '你好', inputType: 'insertText', bubbles: true }))
+  })
+  await expect(page.getByTestId('training-counts')).toContainText('已输入 2 · 正确 2 · 错误 0')
+  await input.evaluate((node: HTMLTextAreaElement) => {
+    node.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }))
+    node.value = '你好shijie'
+    node.dispatchEvent(new CompositionEvent('compositionupdate', { data: 'shijie', bubbles: true }))
+  })
+  await page.getByRole('button', { name: '暂停', exact: true }).click()
+  await expect(input).toHaveValue('你好')
+  await expect(page.locator('.composition-preview')).toHaveCount(0)
+  await page.getByRole('button', { name: '继续', exact: true }).click()
+  await input.pressSequentially('，世界。')
+  await expect(page.getByTestId('training-counts')).toContainText('正确 6 · 错误 0')
+})
+
+test('shared wrapping, Unicode slots, scrolling and resizing remain aligned', async ({ page }) => {
+  const text = ('Hello 世界，e\u0301 👩‍💻!\nNext line. ').repeat(20)
+  await fixture(page, text)
+  const input = page.getByRole('textbox', { name: '训练输入' })
+  await input.pressSequentially(text.slice(0, 210))
+  await aligned(page)
+  expect(await page.locator('.typing-viewport').evaluate((node) => node.scrollTop)).toBeGreaterThan(0)
+  const cursor = await page.locator('.typing-cell.current').boundingBox()
+  const viewport = await page.locator('.typing-viewport').boundingBox()
+  expect(cursor!.y).toBeGreaterThanOrEqual(viewport!.y)
+  expect(cursor!.y + cursor!.height).toBeLessThanOrEqual(viewport!.y + viewport!.height)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await aligned(page)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await input.press('Backspace')
+  await aligned(page)
+})
+
+test('English uses measured proportional widths and normal spaces', async ({ page }) => {
+  const text = 'iii WWW Hello, world. Next line!'
+  await fixture(page, text, 'en')
+  const sizes = await page.locator('[data-answer-index]').evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().width))
+  expect(sizes[0]).toBeLessThan(sizes[4] / 2)
+  expect(sizes[3]).toBeLessThan(sizes[4])
+  const reference = await page.locator('.typing-viewport').evaluate((node, text) => {
+    const style = getComputedStyle(node)
+    const span = document.createElement('span')
+    span.style.cssText = `position:absolute;white-space:pre;font:${style.font};font-kerning:none;font-variant-ligatures:none;letter-spacing:normal`
+    span.textContent = text
+    node.append(span)
+    const width = span.getBoundingClientRect().width
+    span.remove()
+    return width
+  }, text)
+  expect(Math.abs(sizes.slice(0, -1).reduce((a, b) => a + b, 0) - reference)).toBeLessThan(1)
+  await expect(page.locator('[data-answer-index="3"]')).toHaveText(' ')
+  await page.getByRole('textbox', { name: '训练输入' }).pressSequentially('WWW ')
+  await expect(page.locator('[data-input-index="0"]')).toHaveClass(/incorrect/)
+  expect(await page.locator('[data-input-index="0"]').evaluate((node) => node.getBoundingClientRect().width)).toBeCloseTo(sizes[0], 1)
+  await aligned(page)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await aligned(page)
+})
+
+test('cancelled article switch preserves paused input and repeated controls do not duplicate edits', async ({ page }) => {
+  await fixture(page, '你好，世界。继续练习。', 'zh')
+  const input = page.getByRole('textbox', { name: '训练输入' })
+  await expect(page.locator('[data-answer-index="0"]')).toHaveCSS('width', '32px')
+  await input.pressSequentially('你好')
+  for (let i = 0; i < 3; i++) {
+    await page.getByRole('button', { name: '暂停', exact: true }).click()
+    await expect(input).toBeDisabled()
+    await page.getByRole('button', { name: '继续', exact: true }).click()
+    await expect(input).toHaveValue('你好')
+  }
+  await page.getByRole('button', { name: '暂停', exact: true }).click()
+  page.once('dialog', (dialog) => dialog.dismiss())
+  await page.getByRole('combobox', { name: '训练文章' }).selectOption('fixed-b')
+  await expect(input).toHaveValue('你好')
+  await expect(page.getByRole('combobox', { name: '训练文章' })).toHaveValue('fixed-a')
+  await page.getByRole('button', { name: '继续', exact: true }).click()
+  await input.pressSequentially('，')
+  await expect(page.getByTestId('training-counts')).toContainText('已输入 3 · 正确 3 · 错误 0')
+  await aligned(page)
+})
+
+
+test('font readiness and zoom recompute shared English layout', async ({ page }) => {
+  await fixture(page, 'iii WWW Hello, natural words and punctuation! '.repeat(12), 'en')
+  const before = await page.locator('[data-answer-index="0"]').evaluate((node) => node.getBoundingClientRect().width)
+  // Install a locally available font as a delayed FontFace; same lifecycle as web fonts.
+  const loaded = await page.evaluate(async () => {
+    const face = new FontFace('TypeFlowLayoutTest', 'local("Liberation Serif"), local("DejaVu Serif"), local("Times New Roman")')
+    await face.load()
+    document.fonts.add(face)
+    const style = document.createElement('style')
+    style.textContent = '.typing-viewport[data-language="en"] { font-family: TypeFlowLayoutTest, serif; font-size: 23px; }'
+    document.head.append(style)
+    await document.fonts.ready
+    document.fonts.dispatchEvent(new Event('loadingdone'))
+    return face.status
+  })
+  expect(loaded).toBe('loaded')
+  await expect.poll(async () => page.locator('[data-answer-index="0"]').evaluate((node) => node.getBoundingClientRect().width)).not.toBe(before)
+  await aligned(page)
+  await page.evaluate(() => { document.body.style.zoom = '1.25' })
+  await expect.poll(async () => page.locator('.typing-cell').first().evaluate((node) => parseFloat(getComputedStyle(node).fontSize))).toBe(23)
+  await page.setViewportSize({ width: 900, height: 850 })
+  const offsets = await page.locator('[data-answer-index]').evaluateAll((nodes) => nodes.map((node) => {
+    const actual = document.querySelector(`[data-input-index="${node.getAttribute('data-answer-index')}"]`)!
+    const a = node.getBoundingClientRect(), b = actual.getBoundingClientRect()
+    return { dx: Math.abs(a.x - b.x), dw: Math.abs(a.width - b.width), dy: b.y - a.y }
+  }))
+  for (const offset of offsets) { expect(offset.dx).toBeLessThan(1); expect(offset.dw).toBeLessThan(1); expect(offset.dy).toBeCloseTo(47.5, 1) }
+})

@@ -1,8 +1,15 @@
 import type { CharacterSlot } from './typingCharacters'
 
-/** Widths are derived from the answer, so a wrong glyph cannot move later slots. */
+export function measurementText(text: string | undefined): string {
+  return text === '\n' ? '↵' : text === '\t' ? '    ' : text ?? ' '
+}
+
+/** Both rows must reserve the wider answer/input glyph at each shared index. */
 export function naturalWidths(slots: CharacterSlot[], measure: (text: string) => number): number[] {
-  return slots.map((slot) => measure(slot.expected === '\n' ? '↵' : slot.expected === '\t' ? '    ' : slot.expected ?? slot.actual ?? ' '))
+  return slots.map((slot) => Math.max(
+    measure(measurementText(slot.expected)),
+    slot.actual === undefined ? 0 : measure(measurementText(slot.actual)),
+  ))
 }
 
 /** Prefer word boundaries, but split words longer than a viewport. */

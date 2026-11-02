@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createImeInput } from '../../utils/imeInput'
 import { offsetToIndex, visibleCharacter } from '../../utils/typingCharacters'
 import type { CharacterSlot } from '../../utils/typingCharacters'
+import { measurementText } from '../../utils/naturalTextLayout'
 import { useTypingLayout } from '../../hooks/useTypingLayout'
 import type { Language, TrainingStatus } from '../../types'
 
@@ -16,7 +17,7 @@ export default function TypingArea({ language, slots, value, status, onCommit }:
   const commitRef = useRef(onCommit)
   commitRef.current = onCommit
   const ime = useMemo(() => createImeInput((text) => commitRef.current(text), setPreview), [])
-  const { rows, widths } = useTypingLayout(language, slots, container)
+  const { rows, widths, inkInsets } = useTypingLayout(language, slots, container)
   const enabled = status === 'running'
 
   useLayoutEffect(() => {
@@ -35,9 +36,11 @@ export default function TypingArea({ language, slots, value, status, onCommit }:
     if (!cell || !box) return
     const row = cell.parentElement?.parentElement
     if (row && enabled) {
-      const top = row.offsetTop
-      if (top < box.scrollTop) box.scrollTop = top
-      else if (top + row.offsetHeight > box.scrollTop + box.clientHeight) box.scrollTop = top + row.offsetHeight - box.clientHeight
+      // Row offsets are relative to typing-lines; include its viewport padding.
+      const padding = parseFloat(getComputedStyle(box).paddingTop) || 0
+      const top = row.offsetTop + (row.parentElement?.offsetTop ?? 0)
+      if (top < box.scrollTop + padding) box.scrollTop = Math.max(0, top - padding)
+      else if (top + row.offsetHeight > box.scrollTop + box.clientHeight - padding) box.scrollTop = top + row.offsetHeight - box.clientHeight + padding
     }
     setAnchor({ left: cell.offsetLeft, top: cell.parentElement!.offsetTop + cell.parentElement!.parentElement!.offsetTop })
   }, [caret, rows, enabled, preview])
@@ -54,8 +57,8 @@ export default function TypingArea({ language, slots, value, status, onCommit }:
     <div className="typing-viewport" data-language={language} ref={container} onClick={() => { if (enabled) input.current?.focus({ preventScroll: true }) }}>
       <div className="typing-lines" aria-hidden="true">
         {rows.map((row) => <div className="typing-pair" key={row[0].index}>
-          <div className="typing-row answer-row">{row.map((slot) => <span key={slot.index} style={{ width: widths[slot.index], flexBasis: widths[slot.index] }} data-answer-index={slot.index} className={`typing-cell ${slot.status}`}><span className={slot.expected === ' ' ? 'space-marker' : undefined}>{language === 'en' && slot.expected === ' ' ? ' ' : visibleCharacter(slot.expected)}</span></span>)}</div>
-          <div className="typing-row input-row">{row.map((slot) => <span ref={slot.index === caret ? cursor : undefined} key={slot.index} style={{ width: widths[slot.index], flexBasis: widths[slot.index] }} data-input-index={slot.index} className={`typing-cell ${slot.status} ${slot.index === caret ? 'current' : ''}`}><span className={slot.actual === ' ' ? 'space-marker' : undefined}>{language === 'en' && slot.actual === ' ' ? ' ' : visibleCharacter(slot.actual)}</span></span>)}</div>
+          <div className="typing-row answer-row">{row.map((slot) => <span key={slot.index} style={{ width: widths[slot.index], flexBasis: widths[slot.index] }} data-answer-index={slot.index} className={`typing-cell ${slot.status}`}><span style={{ marginLeft: inkInsets.get(measurementText(slot.expected)) ?? 0 }} className={slot.expected === ' ' ? 'space-marker' : undefined}>{language === 'en' && slot.expected === ' ' ? ' ' : visibleCharacter(slot.expected)}</span></span>)}</div>
+          <div className="typing-row input-row">{row.map((slot) => <span ref={slot.index === caret ? cursor : undefined} key={slot.index} style={{ width: widths[slot.index], flexBasis: widths[slot.index] }} data-input-index={slot.index} className={`typing-cell ${slot.status} ${slot.index === caret ? 'current' : ''}`}><span style={{ marginLeft: inkInsets.get(measurementText(slot.actual)) ?? 0 }} className={slot.actual === ' ' ? 'space-marker' : undefined}>{language === 'en' && slot.actual === ' ' ? ' ' : visibleCharacter(slot.actual)}</span></span>)}</div>
         </div>)}
       </div>
       <textarea

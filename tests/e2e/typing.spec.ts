@@ -134,13 +134,21 @@ test('English uses measured proportional widths and normal spaces', async ({ pag
     node.append(span)
     const width = span.getBoundingClientRect().width
     span.remove()
-    return width
+    const canvas = document.createElement('canvas').getContext('2d')!
+    canvas.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
+    canvas.fontKerning = 'none'
+    const overhang = Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text), ({ segment }) => {
+      const metric = canvas.measureText(segment)
+      return Math.max(0, metric.actualBoundingBoxLeft) + Math.max(0, metric.actualBoundingBoxRight - metric.width)
+    }).reduce((a, b) => a + b, 0)
+    return { width, overhang }
   }, text)
-  expect(Math.abs(sizes.slice(0, -1).reduce((a, b) => a + b, 0) - reference)).toBeLessThan(1)
+  // Natural advances plus the measured ink safety budget; no arbitrary letter spacing.
+  expect(Math.abs(sizes.slice(0, -1).reduce((a, b) => a + b, 0) - reference.width - reference.overhang)).toBeLessThan(1)
   await expect(page.locator('[data-answer-index="3"]')).toHaveText(' ')
   await page.getByRole('textbox', { name: '训练输入' }).pressSequentially('WWW ')
   await expect(page.locator('[data-input-index="0"]')).toHaveClass(/incorrect/)
-  expect(await page.locator('[data-input-index="0"]').evaluate((node) => node.getBoundingClientRect().width)).toBeCloseTo(sizes[0], 1)
+  expect(await page.locator('[data-input-index="0"]').evaluate((node) => node.getBoundingClientRect().width)).toBeGreaterThan(sizes[0])
   await aligned(page)
   await page.setViewportSize({ width: 390, height: 844 })
   await aligned(page)
@@ -196,4 +204,88 @@ test('font readiness and zoom recompute shared English layout', async ({ page })
     return { dx: Math.abs(a.x - b.x), dw: Math.abs(a.width - b.width), dy: b.y - a.y }
   }))
   for (const offset of offsets) { expect(offset.dx).toBeLessThan(1); expect(offset.dw).toBeLessThan(1); expect(offset.dy).toBeCloseTo(47.5, 1) }
+})
+
+async function sharedGlyphsFit(page: Page) {
+  const measurements = await page.locator('[data-input-index]').evaluateAll((nodes) => nodes.map((node) => {
+    const index = node.getAttribute('data-input-index')!
+    const answer = document.querySelector(`[data-answer-index="${index}"]`)!
+    const glyph = node.firstElementChild!
+    const style = getComputedStyle(glyph)
+    const context = document.createElement('canvas').getContext('2d')!
+    context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
+    context.fontKerning = 'none'
+    const text = glyph.textContent ?? ''
+    const metric = context.measureText(text)
+    const required = Math.max(metric.width, metric.actualBoundingBoxRight || 0) + Math.max(0, metric.actualBoundingBoxLeft || 0)
+    const cell = node.getBoundingClientRect(), top = answer.getBoundingClientRect()
+    return { required: node.classList.contains('pending') ? 0 : required, width: cell.width, deltaX: Math.abs(cell.x - top.x), deltaW: Math.abs(cell.width - top.width), text }
+  }))
+  for (const item of measurements) {
+    expect(item.width, `actual glyph ${JSON.stringify(item.text)} must fit its shared slot`).toBeGreaterThanOrEqual(item.required - 0.02)
+    expect(item.deltaX).toBeLessThan(0.1)
+    expect(item.deltaW).toBeLessThan(0.1)
+  }
+}
+
+for (const [answer, actual] of [
+  ['iiiiiiii', 'oooooooo'],
+  ['iiiiiiii', 'WWWWWWWW'],
+  ['Hello World', 'MMMM WWWWW'],
+  ['Progress often arrives quietly.', 'xxxxxxxxxxxxxxxxxxxxxxxxxxxx'],
+  ['i W.!  iW, Aa?', 'W i?!  Wi. aA!'],
+]) {
+  test(`wide wrong glyphs remain complete: ${actual}`, async ({ page }, testInfo) => {
+    await fixture(page, answer, 'en')
+    await page.getByRole('textbox', { name: '训练输入' }).pressSequentially(actual)
+    await page.screenshot({ path: testInfo.outputPath('glyph-width.png'), fullPage: true })
+    await sharedGlyphsFit(page)
+    await aligned(page)
+  })
+}
+
+test('deleting wide errors restores natural widths, colors, caret and shared wraps', async ({ page }) => {
+  await fixture(page, ('iiii WWWW, Hello!  ').repeat(15), 'en')
+  await page.setViewportSize({ width: 390, height: 844 })
+  const input = page.getByRole('textbox', { name: '训练输入' })
+  const before = await page.locator('[data-answer-index="0"]').evaluate((node) => node.getBoundingClientRect().width)
+  await input.pressSequentially('MMMM WWWWWWWWWWWWWW')
+  await sharedGlyphsFit(page)
+  await aligned(page)
+  for (let i = 0; i < 'MMMM WWWWWWWWWWWWWW'.length; i++) await input.press('Backspace')
+  await expect(input).toHaveValue('')
+  await expect(page.locator('.typing-cell.incorrect')).toHaveCount(0)
+  expect(await page.locator('[data-answer-index="0"]').evaluate((node) => node.getBoundingClientRect().width)).toBeCloseTo(before, 2)
+  await input.pressSequentially('iiii WWWW, Hello!  ')
+  await expect(page.getByTestId('training-counts')).toContainText('错误 0')
+  await sharedGlyphsFit(page)
+  await aligned(page)
+  await page.evaluate(() => { document.body.style.zoom = '1.25' })
+  await page.setViewportSize({ width: 700, height: 900 })
+  const diffs = await page.locator('[data-answer-index]').evaluateAll((nodes) => nodes.map((node) => {
+    const other = document.querySelector(`[data-input-index="${node.getAttribute('data-answer-index')}"]`)!
+    return Math.abs(node.getBoundingClientRect().x - other.getBoundingClientRect().x)
+  }))
+  expect(Math.max(...diffs)).toBeLessThan(0.1)
+})
+
+test('long runs of expanded wrong glyphs share wrapping and scrolling through zoom and resize', async ({ page }) => {
+  await fixture(page, 'i'.repeat(600) + ' End.', 'en')
+  await page.setViewportSize({ width: 390, height: 844 })
+  const input = page.getByRole('textbox', { name: '训练输入' })
+  await input.pressSequentially('W'.repeat(120))
+  await sharedGlyphsFit(page)
+  await aligned(page)
+  expect(await page.locator('.typing-viewport').evaluate((node) => node.scrollTop)).toBeGreaterThan(0)
+  const viewport = await page.locator('.typing-viewport').boundingBox()
+  const caret = await page.locator('.typing-cell.current').boundingBox()
+  expect(caret!.y).toBeGreaterThanOrEqual(viewport!.y)
+  expect(caret!.y + caret!.height).toBeLessThanOrEqual(viewport!.y + viewport!.height)
+  await page.evaluate(() => { document.body.style.zoom = '1.25' })
+  await page.setViewportSize({ width: 700, height: 900 })
+  await sharedGlyphsFit(page)
+  await page.evaluate(() => { document.body.style.zoom = '1' })
+  await input.press('Backspace')
+  await aligned(page)
+  await sharedGlyphsFit(page)
 })

@@ -195,7 +195,7 @@ useTyping 暴露 submittedCharacters、correctCharacters、incorrectCharacters�
 
 ### 英文自然字宽排版（当前方案）
 
-英文不再使用 22px 或其他统一格宽。TypingArea 的英文文本使用 Arial/Helvetica Neue 比例字体，正常 letter-spacing，普通空格，不显示点号。useTypingLayout 根据当前实际字体、字号、字重，使用 Canvas measureText 测量标准答案的每个 grapheme；无 Canvas 时使用隐藏 DOM 测量实际字宽，不以固定宽度替代。两排使用同一个 widths 数组，错误字符也占用标准答案对应宽度，超宽错字裁剪到对应位置，错误背景仍保留。
+英文不再使用 22px 或其他统一格宽。TypingArea 的英文文本使用 Arial/Helvetica Neue 比例字体，正常 letter-spacing，普通空格，不显示点号。useTypingLayout 根据当前实际字体、字号、字重，使用 Canvas measureText 测量标准答案的每个 grapheme；无 Canvas 时使用隐藏 DOM 测量实际字宽，不以固定宽度替代。两排使用同一个 widths 数组；当前版本根据标准字符和实际字符共同决定宽度，不再裁切宽错字，详见下方修复记录。
 
 英文断行按可用像素宽度计算，优先在单词边界换行，超长单词按字符簇拆分；标准 LF 强制换行。上下两排共用同一组行，不各自独立排版。跨字符 kerning 与 ligature 关闭以保持独立可寻址字符和 Canvas/DOM 测量一致，未人为增加字母间距。中文仍使用原来的 32px 字符布局及淡空格标记。
 
@@ -216,3 +216,35 @@ ResizeObserver、窗口 resize、document.fonts.ready 与 loadingdone 都会触�
 在线人工验收建议使用 Windows Chrome/Edge，分别检查中文拼音的空格/数字/Enter 选词、连续组词和候选取消，再检查错误输入后退格、暂停继续、重开、文章切换，以及长文滚动和英文自然字宽。也请新建一个自定义主题和文章，刷新确认本地保存。真实 Windows 输入法和设备交互不能由云端合成事件测试代替。
 
 本测试站仅包含已完成的第一至第四阶段；限时挑战、完整速度统计和成绩历史尚未开发。在线自定义数据保存在该站点所在浏览器；以后下载到本地运行不会自动迁移这些数据。
+
+## 已知问题与修复记录
+
+### 连续英文错误字符裁切（Windows 实测反馈）
+
+**现象与复现证据：** 标准答案为 `iiiiiiii`，输入 `oooooooo` 时，下排 o 看起来像半个字母，连续宽错字也会挤压。修复前在云端 Chromium 重现同一问题，并执行字符完整性回归测试：o 需要约 10.57px，实际共享位置只有 4.21875px，测试明确失败；该次运行的截图已保留，并非事后模拟修复前效果。
+
+**通过代码确认的原因：** naturalWidths 只测量 expected，在标准字符存在时完全忽略 actual。TypingArea 将同一窄宽度用于上下两排，英文字符又继承 `.typing-cell { overflow: hidden }`，因此宽错字被真实裁切。Canvas 与 CSS 字体相同，原始测量未向下取整；在该复现中，主因是测量对象选择错误和隐藏溢出，而非两排索引不一致或 Flex 随机压缩。旧测试甚至要求错误 W 仍沿用窄 i 的宽度，这是原测试覆盖不足，现已修正。
+
+**修复方案：** 每个索引采用 `w(i) = max(measure(expected[i]), measure(actual[i]))`。measure 使用当前字体、字号、字重，除 advance width 外也计入 actualBoundingBoxLeft/Right 的字形墨迹范围；对左侧越界墨迹给出对应偏移。宽度按 1/64 CSS px 向上量化，避免布局舍入丢失字形边缘，不统一放大所有字符，也不恢复固定 22px 格宽。英文字符容器改为 overflow: visible、min-width: 0、禁止 flex-shrink；完整性由正确测量保证，而不是靠让字符溢出相互遮挡。
+
+**同步机制：** 一个索引只生成一份共享宽度，两排同时使用；错误字符扩宽后，统一布局函数同时重排两行。Backspace 后从实际完整值重新匹配和测量，正确字符数、错误字符数、光标与进度仍沿用原有逻辑。删除宽错字后格宽恢复，长文仍使用单个滚动容器。ResizeObserver 与字体加载后的重测保留。中文固定字符布局、IME、useTyping 和字符索引工具没有修改。
+
+**测试方法与结果：**
+
+| 用例 | 检查内容 | 结果 |
+| --- | --- | --- |
+| iiiiiiii → oooooooo | 每个 o 的所需字宽不超过共享格宽，无裁切 | 修复前失败，修复后通过 |
+| iiiiiiii → WWWWWWWW | 连续 W 完整，无重叠，两排同列 | 通过 |
+| Hello World → MMMM WWWWW | 混合宽度、空格和错字完整性 | 通过 |
+| Progress often arrives quietly. → 连续 28 个 x | 连续错字无挤压；未输入透明占位不作为可见字形测试 | 通过 |
+| 错误输入 → 逐个退格 → 正确输入 | 格宽恢复、错误颜色清除、光标和断行同步 | 通过 |
+| 标点、连续空格、大小写及 i/W 交替 | 正常匹配及字形边界、两排横坐标/宽度 | 通过 |
+| 长文宽错字、缩放和窗口变化 | 自动滚动、光标可见、共享断行和坐标 | 通过 |
+
+自动化同时回归原有中文模拟 IME、英文输入、暂停继续、重新开始、文章切换、词库和首页。Windows 系统字体、真实输入法及实际缩放仍待用户本地复测，不将云端通过宣称为 Windows 实机通过。
+
+[修复前截图](./imgs/input-width-before.png) · [修复后截图](./imgs/input-width-after.png)
+
+补充：长文宽错字测试还定位到共享滚动计算未包含 typing-lines 相对容器的内边距，会令底部光标部分超出视口。已只在布局层补齐偏移与底部安全边距，输入和 IME 状态逻辑不变。
+
+本次最终验证：35 项单元/组件测试、23 项 Chromium 浏览器测试、TypeScript 检查、npm run build 均通过；dist 已由修复后的源码重新生成。此前修复前失败运行与修复后通过运行分开记录。等待 Windows 本地人工复测，没有进入第五阶段。

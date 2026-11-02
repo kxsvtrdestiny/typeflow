@@ -28,7 +28,7 @@ export function useTypingLayout(language: Language, slots: CharacterSlot[], cont
   }, [container, language])
 
   return useMemo(() => {
-    if (language === 'zh') return { rows: layoutRows(slots, Math.max(1, Math.floor(measurement.available / 32))), widths: slots.map(() => 32) }
+    if (language === 'zh') return { rows: layoutRows(slots, Math.max(1, Math.floor(measurement.available / 32))), widths: slots.map(() => 32), inkInsets: new Map<string, number>() }
     const canvas = document.createElement('canvas')
     const context = canvas.getContext('2d')
     if (context) { context.font = measurement.font; context.fontKerning = 'none' }
@@ -36,15 +36,22 @@ export function useTypingLayout(language: Language, slots: CharacterSlot[], cont
     const probe = context ? null : document.createElement('span')
     if (probe) { probe.style.cssText = `position:absolute;visibility:hidden;white-space:pre;font:${measurement.font};font-kerning:none;font-variant-ligatures:none;letter-spacing:normal`; document.body.append(probe) }
     const cache = new Map<string, number>()
+    const inkInsets = new Map<string, number>()
     const widths = naturalWidths(slots, (text) => {
       const cached = cache.get(text)
       if (cached !== undefined) return cached
       if (probe) probe.textContent = text
-      const width = context ? context.measureText(text).width : probe!.getBoundingClientRect().width
+      const metrics = context?.measureText(text)
+      // Advance width alone may omit ink overhang (e.g. j). Reserve it and offset ink.
+      const left = Math.max(0, metrics?.actualBoundingBoxLeft ?? 0)
+      const measured = metrics ? left + Math.max(metrics.width, metrics.actualBoundingBoxRight ?? 0) : probe!.getBoundingClientRect().width
+      // Round UP to CSS layout precision, never floor away part of the glyph.
+      const width = Math.ceil(measured * 64) / 64
+      inkInsets.set(text, left)
       cache.set(text, width)
       return width
     })
     probe?.remove()
-    return { widths, rows: layoutNaturalRows(slots, widths, measurement.available) }
+    return { widths, inkInsets, rows: layoutNaturalRows(slots, widths, measurement.available) }
   }, [language, slots, measurement])
 }

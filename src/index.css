@@ -249,7 +249,7 @@ textarea { resize: vertical; line-height: 1.8; }
 
 /* English spacing is tighter; both rows and the native caret share this width. */
 .typing-viewport[data-language="en"] { font: 400 19px/36px Arial, "Helvetica Neue", sans-serif; letter-spacing: normal; font-kerning: none; font-variant-ligatures: none; }
-.typing-viewport[data-language="en"] .typing-cell { font: inherit; justify-content: flex-start; letter-spacing: normal; }
+.typing-viewport[data-language="en"] .typing-cell { overflow: visible; min-width: 0; flex-shrink: 0; font: inherit; justify-content: flex-start; letter-spacing: normal; }
 .typing-viewport[data-language="en"] .native-typing-input { font: inherit; }
 @media (max-width: 639px) { .typing-viewport[data-language="en"] { font-size: 17px; } }
 .space-marker { opacity: .38; }

@@ -204,3 +204,15 @@ ResizeObserver、窗口 resize、document.fonts.ready 与 loadingdone 都会触�
 验证：34 项单元/组件测试、16 项 Chromium 浏览器测试全部通过，TypeScript 检查及 npm run build 通过。新增检查包括 iii/WWW 比例宽度差异、整句宽度与普通文本参照误差小于 1px、普通空格、宽错字仍占窄答案格、字体 FontFace 加载后重新测量、窗口缩放和 CSS zoom=1.25 的双排坐标一致性。CSS 缩放是自动化模拟，不代替不同系统实际浏览器缩放和输入法的人工验收。
 
 [当前英文页面](./imgs/practice-english.png) · [英文移动端](./imgs/practice-english-mobile.png)
+
+## GitHub Pages 在线验收
+
+生产文件发布到 gh-pages 分支根目录，源码仍位于 work 分支。public/.nojekyll 在构建时复制到 dist，避免 GitHub Pages 使用 Jekyll 处理资源。
+
+仓库管理员在 GitHub 的 Settings → Pages 中选择：Source 为 Deploy from a branch，Branch 为 gh-pages，目录为 /(root)，然后保存。启用并完成部署后，默认测试网址为 https://kxsvtrdestiny.github.io/typeflow/ 。不要选择 work 根目录；其中的 index.html 是开发入口。
+
+云端已通过 34 项单元/组件测试、16 项浏览器测试、TypeScript 和生产构建，并使用实际 dist 在 /typeflow/ 子目录验证资源、刷新与英文输入。当前环境访问 GitHub API 和 github.io 受到代理拒绝，不能将分支推送成功视为 Pages 已启用或公网验收通过。请以 GitHub Pages 设置中实际显示的部署状态和网址为准。
+
+在线人工验收建议使用 Windows Chrome/Edge，分别检查中文拼音的空格/数字/Enter 选词、连续组词和候选取消，再检查错误输入后退格、暂停继续、重开、文章切换，以及长文滚动和英文自然字宽。也请新建一个自定义主题和文章，刷新确认本地保存。真实 Windows 输入法和设备交互不能由云端合成事件测试代替。
+
+本测试站仅包含已完成的第一至第四阶段；限时挑战、完整速度统计和成绩历史尚未开发。在线自定义数据保存在该站点所在浏览器；以后下载到本地运行不会自动迁移这些数据。

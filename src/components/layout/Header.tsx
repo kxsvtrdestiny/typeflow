@@ -11,7 +11,6 @@ export default function Header() {
   return (
     <header className="app-header">
       <div className="breadcrumb"><button className="icon-button mobile-only" aria-label="打开菜单" aria-expanded={open} aria-controls="app-sidebar" onClick={() => setOpen(true)}><Menu size={22} /></button><span>工作空间</span><ChevronRight size={14} /><strong>{current?.label ?? '页面未找到'}</strong></div>
-      <span className="header-label">专注当下 · 稳步提升</span>
     </header>
   )
 }

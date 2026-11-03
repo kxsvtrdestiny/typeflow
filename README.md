@@ -1,6 +1,6 @@
-# typeflow
+# 字律 TypeRhythm
 
-TypeFlow 是中英文打字练习平台。当前完成第七阶段文件导入、设置与持久化加固；保留已验收的训练输入、自然英文排版、成绩公式及历史统计。完整需求和验收计划见 [DEVELOPMENT.md](./DEVELOPMENT.md)。
+字律 TypeRhythm 是中英文输入训练空间，原名 TypeFlow。当前完成第七阶段文件导入、设置与持久化加固；保留已验收的训练输入、自然英文排版、成绩公式及历史统计。完整需求和验收计划见 [DEVELOPMENT.md](./DEVELOPMENT.md)。
 
 ## 技术栈
 
@@ -434,3 +434,11 @@ Windows 人工测试报告打开错误音效后听不到声音。代码确认正
 ### 第七阶段最终验收
 
 2026-11-03 用户确认全部 Windows 人工测试通过；最终重新执行 83 项单元/组件测试、51 项 Chromium 浏览器测试、TypeScript 检查及生产构建，全部通过。实际 dist 子目录访问通过，发布分支文件树与 dist 一致。云环境代理拒绝 Pages 网站与 GitHub API 请求，无法独立确认公网部署状态。完整检查、提交和限制见 [第七阶段最终验收报告](./docs/STAGE7_ACCEPTANCE.md)。第七阶段结束，未启动第八阶段。
+
+## 品牌与界面文案更新
+
+界面品牌统一为「字律 TypeRhythm」，标语为「中英文输入训练空间」。移除顶部和侧栏的三处装饰性提示语，保留原有配色、布局和训练功能。仓库名、/typeflow/ 访问路径及 typeflow.* 本地存储键保持兼容，因此已有词库、设置与历史无需迁移。原阶段需求和验收报告保留历史名称。
+
+[新版桌面首页](./imgs/typerhythm-home-desktop.png) · [移动端首页](./imgs/typerhythm-home-mobile.png) · [移动导航](./imgs/typerhythm-menu-mobile.png)
+
+品牌更新验证：83 项单元/组件测试、51 项浏览器测试、TypeScript 检查与生产构建全部通过；实际 /typeflow/ 子目录的品牌、标题及桌面/移动布局检查通过。

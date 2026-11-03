@@ -8,7 +8,7 @@ export default function Sidebar() {
   const close = useLayoutStore((s) => s.setMenuOpen)
   return (
     <aside id="app-sidebar" className={`sidebar ${open ? 'is-open' : ''}`} aria-label="应用侧边栏">
-      <div className="brand"><span className="brand-icon"><Keyboard size={24} /></span><span>TypeFlow<small>让每一次敲击，都有进步</small></span>
+      <div className="brand"><span className="brand-icon"><Keyboard size={24} /></span><span>字律<small>TypeRhythm</small></span>
         <button className="icon-button mobile-only" aria-label="关闭菜单" onClick={() => close(false)}><X size={20} /></button>
       </div>
       <p className="nav-caption">工作空间</p>
@@ -19,7 +19,7 @@ export default function Sidebar() {
           </NavLink>
         ))}
       </nav>
-      <div className="sidebar-footer"><span className="status-dot" />专注练习，循序渐进<small>中英文打字练习平台</small></div>
+      <div className="sidebar-footer"><small>中英文输入训练空间</small></div>
     </aside>
   )
 }

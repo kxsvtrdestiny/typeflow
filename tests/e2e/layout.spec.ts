@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 
 test('desktop dashboard and all five navigation entries', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: '你好，欢迎来到 TypeFlow' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '你好，欢迎来到字律' })).toBeVisible()
   await expect(page.locator('.stat-card')).toHaveCount(4)
   await expect(page.locator('.theme-card')).toHaveCount(3)
   await expect(page.getByText('还没有训练记录', { exact: true })).toBeVisible()

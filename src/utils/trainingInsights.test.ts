@@ -135,3 +135,12 @@ it('all-correct analyzed records have an empty error ranking but retain match de
   const result = errorInsights([analyzed('Aa  !', 'Aa  !', 'en')], 'en')
   expect(result).toMatchObject({ covered: 1, legacy: 0, frequent: [], highRate: [] })
 })
+
+it('returns every error character in both rankings instead of truncating to eight', () => {
+  const expected = 'AbCdEfGhIjKlMn'
+  const record = analyzed(expected, 'xxxxxxxxxxxxxx', 'en')
+  const result = errorInsights([record], 'en')
+  expect(result.frequent).toHaveLength(14)
+  expect(result.highRate).toHaveLength(14)
+  expect(new Set(result.frequent.map(entry => entry.expected))).toEqual(new Set(expected))
+})

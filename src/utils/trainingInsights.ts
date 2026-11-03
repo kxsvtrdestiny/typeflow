@@ -47,8 +47,8 @@ export function errorInsights(records: TrainingRecord[], language: Language) {
   const errors = [...counts.values()].filter(entry => entry.errors > 0)
   const tie = (a: typeof errors[number], b: typeof errors[number]) => String(a.expected).localeCompare(String(b.expected))
   return { covered: covered.length, legacy: relevant.length - covered.length,
-    frequent: [...errors].sort((a,b) => b.errors - a.errors || tie(a,b)).slice(0, 8),
-    highRate: [...errors].sort((a,b) => b.rate - a.rate || b.attempts - a.attempts || tie(a,b)).slice(0, 8) }
+    frequent: [...errors].sort((a,b) => b.errors - a.errors || tie(a,b)),
+    highRate: [...errors].sort((a,b) => b.rate - a.rate || b.attempts - a.attempts || tie(a,b)) }
 }
 export function characterLabel(character: string | null) {
   return character === null ? '超出文本' : character === ' ' ? '空格' : character === '\n' ? '换行' : character === '\t' ? 'Tab' : character

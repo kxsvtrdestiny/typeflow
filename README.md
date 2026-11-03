@@ -455,7 +455,7 @@ Windows 人工测试报告打开错误音效后听不到声音。代码确认正
 
 ### 常见错误字符分析
 
-历史页提供折叠的“错误字符分析”，独立切换中文/English，可按错误次数或错误率查看前 8 个标准字符。统计对象是**容易输错的标准答案字符**，不是用户敲入的错误替代字。例如答案 A、实际 x，为 A 累加一次匹配与一次错误。
+历史页提供折叠的“错误字符分析”，独立切换中文/English，可按错误次数或错误率查看全部标准字符。统计对象是**容易输错的标准答案字符**，不是用户敲入的错误替代字。例如答案 A、实际 x，为 A 累加一次匹配与一次错误。
 
 本次检查确认旧历史仅有错误总数，没有可靠的逐字分布。因此旧记录继续参与目标/天数统计，但明确标注无字符明细，不反推、不伪造分布。仅新完成轮次的正式提交结果产生 characterAnalysis 聚合：
 
@@ -498,3 +498,11 @@ characterAnalysis?: {
 [首页目标](./imgs/stage8-dashboard.png) · [目标设置](./imgs/stage8-goal-settings.png) · [历史习惯与中文错误](./imgs/stage8-history-insights.png) · [英文错误率](./imgs/stage8-english-errors.png) · [移动端首页](./imgs/stage8-dashboard-mobile.png) · [移动端分析](./imgs/stage8-history-mobile.png) · [深色分析](./imgs/stage8-dark-insights.png)
 
 第八阶段新增界面与数据升级仍待用户 Windows 人工验收；云端测试不替代实际设备验证。未进入第九阶段。
+
+### 错误字符分析布局优化
+
+仅调整错误分析的呈现：桌面双列紧凑卡片，600px 及以下单列；字符、错误/匹配次数、错误率集中显示。保留语言切换和两种排序，取消原有前 8 项截断，展示全部易错字符，不增加搜索或依赖。统计公式、采集、数据结构、每日目标与连续天数均保持不变。
+
+本次验证：全部 100 项单元/组件测试、8 项相关 Playwright 测试、TypeScript 检查和生产构建通过；新增浏览器测试实际核对双列/单列坐标、14 个字符完整显示、末项可见、两种排序和移动端无横向溢出。生产 dist 在 /typeflow/ 下通过同数据前后截图验证。对比数据由独立浏览器实际完成中英文各一轮演示训练生成，不是用户历史或默认数据；旧版只显示 8 项，新版显示全部 12 项。
+
+[修改前桌面](./imgs/error-analysis-before-desktop.png) · [修改后桌面](./imgs/error-analysis-after-desktop.png) · [修改前英文](./imgs/error-analysis-before-english.png) · [修改后英文](./imgs/error-analysis-after-english.png) · [修改前移动端](./imgs/error-analysis-before-mobile.png) · [修改后移动端](./imgs/error-analysis-after-mobile.png)

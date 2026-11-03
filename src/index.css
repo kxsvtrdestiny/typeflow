@@ -393,15 +393,18 @@ textarea { resize: vertical; line-height: 1.8; }
 .error-analysis-body { display: grid; gap: 14px; padding-top: 16px; }
 .error-analysis-body .section-heading { margin: 0; flex-wrap: wrap; }
 .error-analysis-body label { display: flex; gap: 8px; align-items: center; }
-.error-character-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.error-character-list li { display: grid; grid-template-columns: minmax(42px, 1fr) auto 64px; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
-.error-character-list li > strong { overflow-wrap: anywhere; white-space: pre-wrap; }
-.error-character-list li > span:last-child { text-align: right; color: var(--error); }
+.error-character-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.error-character-list li { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; }
+.error-character-glyph { display: grid; place-items: center; flex: 0 0 42px; min-height: 42px; padding: 4px; border-radius: 8px; background: var(--border); color: var(--primary); font-size: 18px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.error-character-details { display: grid; gap: 2px; min-width: 0; font-size: 12px; line-height: 1.6; }
+.error-character-rate { color: var(--muted); font-size: 11px; }
+.error-character-rate b { color: var(--error); font-weight: 600; }
 .insights-empty { padding: 18px 0; text-align: center; color: var(--muted); font-size: 13px; }
 @media (max-width: 600px) {
   .daily-goal { flex-wrap: wrap; gap: 12px; padding: 16px; }
   .goal-label { width: 100%; }
   .goal-progress { margin-left: 0; max-width: none; }
   .training-insights { padding: 16px; }
-  .error-character-list li { gap: 8px; grid-template-columns: minmax(30px, 1fr) auto 55px; }
+  .error-character-list { grid-template-columns: minmax(0, 1fr); }
+  .error-character-list li { gap: 10px; padding: 10px; }
 }

@@ -22,7 +22,13 @@ async function aligned(page: Page) {
     const input = document.querySelector(`[data-input-index="${index}"]`)!.getBoundingClientRect()
     return { dx: Math.abs(answer.x - input.x), dy: input.y - answer.y, dw: Math.abs(answer.width - input.width) }
   }))
-  for (const pair of pairs) { expect(pair.dx).toBeLessThan(1); expect(pair.dw).toBeLessThan(1); expect(pair.dy).toBe(38) }
+  const chinese = await page.locator('.typing-viewport').getAttribute('data-language') === 'zh'
+  for (const pair of pairs) {
+    if (chinese) { expect(pair.dx).toBeLessThan(1); expect(pair.dw).toBeLessThan(1) }
+    expect(pair.dy).toBe(38)
+  }
+  const sameLines = await page.locator('[data-answer-index]').evaluateAll((nodes) => nodes.every((node) => node.parentElement!.parentElement === document.querySelector(`[data-input-index="${node.getAttribute('data-answer-index')}"]`)!.parentElement!.parentElement))
+  expect(sameLines).toBe(true)
 }
 
 test('English physical keys, strict case, spaces, punctuation, correction, newline and completion', async ({ page }) => {
@@ -203,7 +209,7 @@ test('font readiness and zoom recompute shared English layout', async ({ page })
     const a = node.getBoundingClientRect(), b = actual.getBoundingClientRect()
     return { dx: Math.abs(a.x - b.x), dw: Math.abs(a.width - b.width), dy: b.y - a.y }
   }))
-  for (const offset of offsets) { expect(offset.dx).toBeLessThan(1); expect(offset.dw).toBeLessThan(1); expect(offset.dy).toBeCloseTo(47.5, 1) }
+  for (const offset of offsets) { expect(offset.dy).toBeCloseTo(47.5, 1) }
 })
 
 async function sharedGlyphsFit(page: Page) {
@@ -219,12 +225,13 @@ async function sharedGlyphsFit(page: Page) {
     const metric = context.measureText(text)
     const required = Math.max(metric.width, metric.actualBoundingBoxRight || 0) + Math.max(0, metric.actualBoundingBoxLeft || 0)
     const cell = node.getBoundingClientRect(), top = answer.getBoundingClientRect()
-    return { required: node.classList.contains('pending') ? 0 : required, width: cell.width, deltaX: Math.abs(cell.x - top.x), deltaW: Math.abs(cell.width - top.width), text }
+    const next = node.nextElementSibling?.getBoundingClientRect()
+    return { gap: next ? next.x - cell.right : 0, required: node.classList.contains('pending') ? 0 : required, width: cell.width, deltaX: Math.abs(cell.x - top.x), deltaW: Math.abs(cell.width - top.width), text }
   }))
   for (const item of measurements) {
-    expect(item.width, `actual glyph ${JSON.stringify(item.text)} must fit its shared slot`).toBeGreaterThanOrEqual(item.required - 0.02)
-    expect(item.deltaX).toBeLessThan(0.1)
-    expect(item.deltaW).toBeLessThan(0.1)
+    expect(item.width, `actual glyph ${JSON.stringify(item.text)} must fit its own natural slot`).toBeGreaterThanOrEqual(item.required - 0.02)
+    expect(item.gap).toBeGreaterThanOrEqual(-0.1)
+
   }
 }
 
@@ -262,18 +269,16 @@ test('deleting wide errors restores natural widths, colors, caret and shared wra
   await aligned(page)
   await page.evaluate(() => { document.body.style.zoom = '1.25' })
   await page.setViewportSize({ width: 700, height: 900 })
-  const diffs = await page.locator('[data-answer-index]').evaluateAll((nodes) => nodes.map((node) => {
-    const other = document.querySelector(`[data-input-index="${node.getAttribute('data-answer-index')}"]`)!
-    return Math.abs(node.getBoundingClientRect().x - other.getBoundingClientRect().x)
-  }))
-  expect(Math.max(...diffs)).toBeLessThan(0.1)
+  const samePairs = await page.locator('[data-answer-index]').evaluateAll((nodes) => nodes.every((node) => node.parentElement!.parentElement === document.querySelector(`[data-input-index="${node.getAttribute('data-answer-index')}"]`)!.parentElement!.parentElement))
+  expect(samePairs).toBe(true)
+  await sharedGlyphsFit(page)
 })
 
 test('long runs of expanded wrong glyphs share wrapping and scrolling through zoom and resize', async ({ page }) => {
   await fixture(page, 'i'.repeat(600) + ' End.', 'en')
   await page.setViewportSize({ width: 390, height: 844 })
   const input = page.getByRole('textbox', { name: '训练输入' })
-  await input.pressSequentially('W'.repeat(120))
+  await input.fill('W'.repeat(300))
   await sharedGlyphsFit(page)
   await aligned(page)
   expect(await page.locator('.typing-viewport').evaluate((node) => node.scrollTop)).toBeGreaterThan(0)
@@ -289,3 +294,36 @@ test('long runs of expanded wrong glyphs share wrapping and scrolling through zo
   await aligned(page)
   await sharedGlyphsFit(page)
 })
+
+async function answerCoordinates(page: Page) {
+  return page.locator('[data-answer-index]').evaluateAll((nodes) => {
+    const box = document.querySelector('.typing-viewport')! as HTMLElement
+    const bounds = box.getBoundingClientRect()
+    return nodes.map((node) => {
+      const rect = node.getBoundingClientRect()
+      return { index: node.getAttribute('data-answer-index'), x: rect.x - bounds.x, row: node.parentElement!.parentElement!.getAttribute('data-row-start'), width: rect.width, y: rect.y - bounds.y + box.scrollTop }
+    })
+  })
+}
+
+for (const width of [390, 768, 1280]) {
+  test(`answer coordinates and row boundaries never depend on wrong input at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 })
+    await fixture(page, 'Maya found a blue notebook on a park bench.', 'en')
+    const initial = await answerCoordinates(page)
+    await page.screenshot({ path: testInfo.outputPath('answer-before-input.png'), fullPage: true })
+    const input = page.getByRole('textbox', { name: '训练输入' })
+    for (const glyph of ['y', 'W', 'i', 'o']) {
+      await input.fill(glyph.repeat(16))
+      await page.screenshot({ path: testInfo.outputPath(`answer-after-${glyph}.png`), fullPage: true })
+      expect(await answerCoordinates(page)).toEqual(initial)
+      await sharedGlyphsFit(page)
+      await expect(page.getByTestId('training-counts')).toContainText(`错误 ${Array.from('Maya found a blue notebook on a park bench.').slice(0, 16).filter((char) => char !== glyph).length}`)
+      for (let i = 0; i < 16; i++) await input.press('Backspace')
+      expect(await answerCoordinates(page)).toEqual(initial)
+    }
+    await input.pressSequentially('Maya found a')
+    expect(await answerCoordinates(page)).toEqual(initial)
+    await expect(page.getByTestId('training-counts')).toContainText('错误 0')
+  })
+}

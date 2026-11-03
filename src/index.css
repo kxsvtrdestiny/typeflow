@@ -253,3 +253,7 @@ textarea { resize: vertical; line-height: 1.8; }
 .typing-viewport[data-language="en"] .native-typing-input { font: inherit; }
 @media (max-width: 639px) { .typing-viewport[data-language="en"] { font-size: 17px; } }
 .space-marker { opacity: .38; }
+
+/* English answer lines are immutable; only their corresponding input line scrolls. */
+.typing-viewport[data-language="en"] .input-row { height: 54px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+.typing-viewport[data-language="en"] .input-row .typing-cell { height: 36px; }

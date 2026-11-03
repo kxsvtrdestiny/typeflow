@@ -3,7 +3,7 @@ import type { RefObject } from 'react'
 import type { Language } from '../types'
 import { layoutRows } from '../utils/typingCharacters'
 import type { CharacterSlot } from '../utils/typingCharacters'
-import { layoutNaturalRows, naturalWidths } from '../utils/naturalTextLayout'
+import { actualWidths, layoutNaturalRows, naturalWidths } from '../utils/naturalTextLayout'
 
 export function useTypingLayout(language: Language, slots: CharacterSlot[], container: RefObject<HTMLDivElement | null>) {
   const [measurement, setMeasurement] = useState({ available: 640, font: '', revision: 0 })
@@ -28,7 +28,7 @@ export function useTypingLayout(language: Language, slots: CharacterSlot[], cont
   }, [container, language])
 
   return useMemo(() => {
-    if (language === 'zh') return { rows: layoutRows(slots, Math.max(1, Math.floor(measurement.available / 32))), widths: slots.map(() => 32), inkInsets: new Map<string, number>() }
+    if (language === 'zh') return { rows: layoutRows(slots, Math.max(1, Math.floor(measurement.available / 32))), widths: slots.map(() => 32), inputWidths: slots.map(() => 32), inkInsets: new Map<string, number>() }
     const canvas = document.createElement('canvas')
     const context = canvas.getContext('2d')
     if (context) { context.font = measurement.font; context.fontKerning = 'none' }
@@ -37,7 +37,7 @@ export function useTypingLayout(language: Language, slots: CharacterSlot[], cont
     if (probe) { probe.style.cssText = `position:absolute;visibility:hidden;white-space:pre;font:${measurement.font};font-kerning:none;font-variant-ligatures:none;letter-spacing:normal`; document.body.append(probe) }
     const cache = new Map<string, number>()
     const inkInsets = new Map<string, number>()
-    const widths = naturalWidths(slots, (text) => {
+    const measureGlyph = (text: string) => {
       const cached = cache.get(text)
       if (cached !== undefined) return cached
       if (probe) probe.textContent = text
@@ -50,8 +50,15 @@ export function useTypingLayout(language: Language, slots: CharacterSlot[], cont
       inkInsets.set(text, left)
       cache.set(text, width)
       return width
-    })
+    }
+    const widths = naturalWidths(slots, measureGlyph)
+    const inputWidths = actualWidths(slots, measureGlyph)
+    // Freeze line membership from the answer. Extra submitted graphemes join its last line.
+    const answerSlots = slots.filter((slot) => slot.expected !== undefined)
+    const rows = layoutNaturalRows(answerSlots, widths, measurement.available)
+    if (!rows.length) rows.push([])
+    rows[rows.length - 1].push(...slots.slice(answerSlots.length))
     probe?.remove()
-    return { widths, inkInsets, rows: layoutNaturalRows(slots, widths, measurement.available) }
+    return { widths, inputWidths, inkInsets, rows }
   }, [language, slots, measurement])
 }

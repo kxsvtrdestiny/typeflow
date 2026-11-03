@@ -4,12 +4,12 @@ export function measurementText(text: string | undefined): string {
   return text === '\n' ? '↵' : text === '\t' ? '    ' : text ?? ' '
 }
 
-/** Both rows must reserve the wider answer/input glyph at each shared index. */
+/** The answer width is independent of everything the user types. */
 export function naturalWidths(slots: CharacterSlot[], measure: (text: string) => number): number[] {
-  return slots.map((slot) => Math.max(
-    measure(measurementText(slot.expected)),
-    slot.actual === undefined ? 0 : measure(measurementText(slot.actual)),
-  ))
+  return slots.map((slot) => slot.expected === undefined ? 0 : measure(measurementText(slot.expected)))
+}
+export function actualWidths(slots: CharacterSlot[], measure: (text: string) => number): number[] {
+  return slots.map((slot) => slot.actual === undefined ? 0 : measure(measurementText(slot.actual)))
 }
 
 /** Prefer word boundaries, but split words longer than a viewport. */

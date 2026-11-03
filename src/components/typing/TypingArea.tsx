@@ -17,7 +17,7 @@ export default function TypingArea({ language, slots, value, status, onCommit }:
   const commitRef = useRef(onCommit)
   commitRef.current = onCommit
   const ime = useMemo(() => createImeInput((text) => commitRef.current(text), setPreview), [])
-  const { rows, widths, inkInsets } = useTypingLayout(language, slots, container)
+  const { rows, widths, inputWidths, inkInsets } = useTypingLayout(language, slots, container)
   const enabled = status === 'running'
 
   useLayoutEffect(() => {
@@ -42,10 +42,21 @@ export default function TypingArea({ language, slots, value, status, onCommit }:
       if (top < box.scrollTop + padding) box.scrollTop = Math.max(0, top - padding)
       else if (top + row.offsetHeight > box.scrollTop + box.clientHeight - padding) box.scrollTop = top + row.offsetHeight - box.clientHeight + padding
     }
-    setAnchor({ left: cell.offsetLeft, top: cell.parentElement!.offsetTop + cell.parentElement!.parentElement!.offsetTop })
+    const line = cell.parentElement!
+    if (language === 'en') {
+      if (cell.offsetLeft < line.scrollLeft) line.scrollLeft = cell.offsetLeft
+      else if (cell.offsetLeft + cell.offsetWidth > line.scrollLeft + line.clientWidth) line.scrollLeft = cell.offsetLeft + cell.offsetWidth - line.clientWidth
+    }
+    positionAnchor()
   }, [caret, rows, enabled, preview])
   useEffect(() => () => ime.reset(''), [ime])
 
+  function positionAnchor() {
+    const cell = cursor.current
+    if (!cell) return
+    const line = cell.parentElement!
+    setAnchor({ left: cell.offsetLeft - line.scrollLeft, top: line.offsetTop + line.parentElement!.offsetTop })
+  }
   function selection() {
     if (!ime.isComposing() && input.current) setCaret(offsetToIndex(input.current.value, input.current.selectionStart))
   }
@@ -56,14 +67,14 @@ export default function TypingArea({ language, slots, value, status, onCommit }:
     <div className="typing-legend"><span>标准答案 / 实际输入</span><span><i className="legend-correct" />正确 <i className="legend-error" />错误 <i className="legend-current" />当前位置</span></div>
     <div className="typing-viewport" data-language={language} ref={container} onClick={() => { if (enabled) input.current?.focus({ preventScroll: true }) }}>
       <div className="typing-lines" aria-hidden="true">
-        {rows.map((row) => <div className="typing-pair" key={row[0].index}>
+        {rows.map((row) => <div className="typing-pair" data-row-start={row[0].index} key={row[0].index}>
           <div className="typing-row answer-row">{row.map((slot) => <span key={slot.index} style={{ width: widths[slot.index], flexBasis: widths[slot.index] }} data-answer-index={slot.index} className={`typing-cell ${slot.status}`}><span style={{ marginLeft: inkInsets.get(measurementText(slot.expected)) ?? 0 }} className={slot.expected === ' ' ? 'space-marker' : undefined}>{language === 'en' && slot.expected === ' ' ? ' ' : visibleCharacter(slot.expected)}</span></span>)}</div>
-          <div className="typing-row input-row">{row.map((slot) => <span ref={slot.index === caret ? cursor : undefined} key={slot.index} style={{ width: widths[slot.index], flexBasis: widths[slot.index] }} data-input-index={slot.index} className={`typing-cell ${slot.status} ${slot.index === caret ? 'current' : ''}`}><span style={{ marginLeft: inkInsets.get(measurementText(slot.actual)) ?? 0 }} className={slot.actual === ' ' ? 'space-marker' : undefined}>{language === 'en' && slot.actual === ' ' ? ' ' : visibleCharacter(slot.actual)}</span></span>)}</div>
+          <div className="typing-row input-row" onScroll={positionAnchor}>{row.map((slot) => <span ref={slot.index === caret ? cursor : undefined} key={slot.index} style={{ width: inputWidths[slot.index] || (slot.index === caret ? 2 : 0), flexBasis: inputWidths[slot.index] || (slot.index === caret ? 2 : 0) }} data-input-index={slot.index} className={`typing-cell ${slot.status} ${slot.index === caret ? 'current' : ''}`}><span style={{ marginLeft: inkInsets.get(measurementText(slot.actual)) ?? 0 }} className={slot.actual === ' ' ? 'space-marker' : undefined}>{language === 'en' && slot.actual === ' ' ? ' ' : visibleCharacter(slot.actual)}</span></span>)}</div>
         </div>)}
       </div>
       <textarea
         ref={input} aria-label="训练输入" aria-describedby="typing-help" className="native-typing-input"
-        style={{ left: anchor.left, top: anchor.top, width: widths[caret] || 1 }} disabled={!enabled} defaultValue={value}
+        style={{ left: anchor.left, top: anchor.top, width: inputWidths[caret] || 2 }} disabled={!enabled} defaultValue={value}
         wrap="off" spellCheck={false} autoComplete="off" autoCorrect="off" autoCapitalize="off"
         onCompositionStart={() => { if (enabled) ime.start() }}
         onCompositionUpdate={(event) => { if (enabled) ime.update(event.data) }}
@@ -86,6 +97,6 @@ export default function TypingArea({ language, slots, value, status, onCommit }:
         onPaste={(event) => event.preventDefault()} onDrop={(event) => event.preventDefault()}
       />
     </div>
-    <div className="typing-help" id="typing-help">{preview ? <span className="composition-preview">正在组字：{preview}（未提交）</span> : `${language === 'zh' ? '空格显示为 ·，' : ''}换行显示为 ↵。严格逐位置匹配，可使用退格、方向键和选区编辑。练习区不支持粘贴。`}</div>
+    <div className="typing-help" id="typing-help">{preview ? <span className="composition-preview">正在组字：{preview}（未提交）</span> : `${language === 'zh' ? '空格显示为 ·，' : ''}换行显示为 ↵。${language === 'en' ? '上下按字符索引对应；宽错字行可横向滚动。' : ''}严格逐位置匹配，可使用退格、方向键和选区编辑。练习区不支持粘贴。`}</div>
   </>
 }

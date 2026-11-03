@@ -61,6 +61,7 @@ export default function TrainingSession({ article, language, themeId, themeName,
       {session.status === 'paused' && <button className="button primary" onClick={() => { sounds.unlock(); typing.resume() }}><Play size={16} />继续</button>}
       <button className="button secondary" onPointerDown={(event) => event.preventDefault()} onClick={restart}><RotateCcw size={16} />重新开始</button>
     </div></div>
+    {sounds.error && <div role="alert" className="history-save-status"><span>{sounds.error}</span><button className="button secondary" onClick={() => sounds.unlock()}>重试音效</button></div>}
     <TypingArea language={language} key={revision} slots={typing.slots} value={session.value} status={session.status} onCommit={typing.commit} />
     <div className="training-progress" data-testid="training-counts"><label htmlFor="training-progress">训练进度 {Math.round(typing.progress * 100)}%</label><span>已输入 {typing.submittedCharacters} · 正确 {typing.correctCharacters} · 错误 {typing.incorrectCharacters}</span></div>
     <progress id="training-progress" max={1} value={typing.progress} />

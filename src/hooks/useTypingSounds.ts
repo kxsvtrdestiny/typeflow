@@ -1,8 +1,11 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { UserSettings } from '../types'
 import type { TypingSession } from './useTyping'
 import { createTonePlayer, selectTypingTone } from '../utils/typingAudio'
 export function useTypingSounds(id: string, session: TypingSession, settings: UserSettings) {
+  const [error, setError] = useState<string | null>(null)
+  const current = useRef({ id, status: session.status })
+  current.current = { id, status: session.status }
   const player = useRef<ReturnType<typeof createTonePlayer> | null>(null)
   const previous = useRef({ id, total: 0, correct: 0 })
   useEffect(() => {
@@ -11,8 +14,8 @@ export function useTypingSounds(id: string, session: TypingSession, settings: Us
     previous.current = { id, total: session.totalInputCharacters, correct: session.totalCorrectInputCharacters }
     if (session.status !== 'running') return
     const tone = selectTypingTone(total, correct, settings.correctSound, settings.incorrectSound)
-    if (tone) player.current?.play(tone)
+    if (tone) player.current?.play(tone, () => current.current.id === id && current.current.status === 'running')
   }, [id, session.status, session.totalInputCharacters, session.totalCorrectInputCharacters, settings.correctSound, settings.incorrectSound])
   useEffect(() => () => { player.current?.close(); player.current = null }, [])
-  return { unlock(enabled = settings.correctSound || settings.incorrectSound) { if (enabled) { player.current ??= createTonePlayer(); void player.current.unlock() } } }
+  return { error, unlock(enabled = settings.correctSound || settings.incorrectSound) { if (enabled) { player.current ??= createTonePlayer(undefined, setError); void player.current.unlock() } } }
 }

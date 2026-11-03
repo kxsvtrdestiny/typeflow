@@ -96,15 +96,26 @@ test('sound responds only to enabled formal new input, not IME preview, deletion
     node.dispatchEvent(new InputEvent('input', { bubbles: true, data: '你好' }))
   })
   await expect.poll(tones).toEqual([660, 660])
-  await input.pressSequentially('错')
-  await expect.poll(tones).toEqual([660, 660, 220])
+  await input.evaluate((node: HTMLTextAreaElement) => {
+    node.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }))
+    node.value = '你好cuo'
+    node.dispatchEvent(new CompositionEvent('compositionupdate', { bubbles: true, data: 'cuo' }))
+    node.dispatchEvent(new InputEvent('input', { bubbles: true, isComposing: true }))
+  })
+  expect(await tones()).toEqual([660, 660])
+  await input.evaluate((node: HTMLTextAreaElement) => {
+    node.value = '你好错'
+    node.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: '错' }))
+    node.dispatchEvent(new InputEvent('input', { bubbles: true, data: '错' }))
+  })
+  await expect.poll(tones).toEqual([660, 660, 440])
   await page.getByRole('button', { name: '暂停', exact: true }).click()
   await input.evaluate((node: HTMLTextAreaElement) => { node.value += '坏'; node.dispatchEvent(new InputEvent('input', { bubbles: true })) })
-  expect(await tones()).toEqual([660, 660, 220])
+  expect(await tones()).toEqual([660, 660, 440])
   await page.getByRole('button', { name: '继续', exact: true }).click()
   await input.fill('你好，世界。继续练习。')
   await expect(page.locator('[data-training-status]')).toHaveAttribute('data-training-status', 'completed')
-  expect(await tones()).toEqual([660, 660, 220])
+  expect(await tones()).toEqual([660, 660, 440])
 })
 
 test('dark mode changes colors only and keeps English answer coordinates stable', async ({ page }) => {
@@ -153,4 +164,98 @@ test('settings write failure and partial reset are explicit and unrelated keys s
   expect(await page.evaluate(() => localStorage.getItem('typeflow.library'))).toBeNull()
   await page.getByRole('navigation').getByRole('link', { name: '词库管理', exact: true }).click()
   await expect(page.locator('.library-card')).toHaveCount(6)
+})
+
+for (const correctSound of [false, true]) for (const incorrectSound of [false, true]) {
+  test(`independent sound switches: correct=${correctSound}, incorrect=${incorrectSound}`, async ({ page }) => {
+    await seed(page, { ...defaults, correctSound, incorrectSound, autoSave: false })
+    await page.addInitScript(() => {
+      const tones: number[] = []
+      Object.assign(window, { testTones: tones })
+      Object.defineProperty(window, 'AudioContext', { value: class {
+        state = 'suspended'; currentTime = 0; destination = {}
+        async resume() { this.state = 'running' }
+        async close() { this.state = 'closed' }
+        createGain() { return { gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {}, disconnect() {} } }
+        createOscillator() { return { frequency: { value: 0 }, type: '', onended: null as (() => void) | null, connect() {}, disconnect() {}, start() { tones.push(this.frequency.value) }, stop() { this.onended?.() } } }
+      } })
+    })
+    await page.goto('/#/practice?themeId=custom-preferences&articleId=pref-a')
+    await page.getByRole('button', { name: '开始训练', exact: true }).click()
+    const input = page.getByRole('textbox', { name: '训练输入' })
+    await input.pressSequentially('AX')
+    const expected = [...(correctSound ? [660] : []), ...(incorrectSound ? [440] : [])]
+    await expect.poll(() => page.evaluate(() => (window as unknown as { testTones: number[] }).testTones)).toEqual(expected)
+    await input.press('Backspace')
+    expect(await page.evaluate(() => (window as unknown as { testTones: number[] }).testTones)).toEqual(expected)
+  })
+}
+
+test('native Web Audio unlocks from start click and produces an error-tone signal', async ({ page }) => {
+  await seed(page, { ...defaults, incorrectSound: true, autoSave: false })
+  await page.addInitScript(() => {
+    const Native = window.AudioContext
+    const probe = { state: '', frequencies: [] as number[], peak: 0 }
+    Object.assign(window, { audioProbe: probe })
+    Object.defineProperty(window, 'AudioContext', { value: class extends Native {
+      constructor() {
+        super()
+        this.addEventListener('statechange', () => { probe.state = this.state })
+      }
+      createGain() {
+        const gain = super.createGain()
+        const analyser = this.createAnalyser()
+        gain.connect(analyser)
+        const samples = new Float32Array(analyser.fftSize)
+        const timer = setInterval(() => {
+          analyser.getFloatTimeDomainData(samples)
+          for (const value of samples) probe.peak = Math.max(probe.peak, Math.abs(value))
+        }, 5)
+        setTimeout(() => clearInterval(timer), 1000)
+        return gain
+      }
+      createOscillator() {
+        const osc = super.createOscillator()
+        const start = osc.start.bind(osc)
+        osc.start = (when) => { probe.frequencies.push(osc.frequency.value); start(when) }
+        return osc
+      }
+    } })
+  })
+  await page.goto('/#/practice?themeId=custom-preferences&articleId=pref-a')
+  await page.getByRole('button', { name: '开始训练', exact: true }).click()
+  await page.getByRole('textbox', { name: '训练输入' }).pressSequentially('X')
+  await expect.poll(() => page.evaluate(() => (window as unknown as { audioProbe: { peak: number } }).audioProbe.peak)).toBeGreaterThan(0.01)
+  const probe = await page.evaluate(() => (window as unknown as { audioProbe: { state: string; frequencies: number[] } }).audioProbe)
+  expect(probe.state).toBe('running')
+  expect(probe.frequencies).toEqual([440])
+  await expect(page.getByRole('alert')).toHaveCount(0)
+})
+
+test('blocked audio is reported and can be retried without interrupting training', async ({ page }) => {
+  await seed(page, { ...defaults, incorrectSound: true, autoSave: false })
+  await page.addInitScript(() => {
+    Object.assign(window, { allowAudio: false, testTones: [] as number[] })
+    Object.defineProperty(window, 'AudioContext', { value: class {
+      state = 'suspended'; currentTime = 0; destination = {}
+      async resume() {
+        if (!(window as unknown as { allowAudio: boolean }).allowAudio) throw new Error('NotAllowedError')
+        this.state = 'running'
+      }
+      async close() { this.state = 'closed' }
+      createGain() { return { gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {}, disconnect() {} } }
+      createOscillator() { return { frequency: { value: 0 }, onended: null as (() => void) | null, connect() {}, disconnect() {}, start() { (window as unknown as { testTones: number[] }).testTones.push(this.frequency.value) }, stop() { this.onended?.() } } }
+    } })
+  })
+  await page.goto('/#/practice?themeId=custom-preferences&articleId=pref-a')
+  await page.getByRole('button', { name: '开始训练', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('音效未能播放')
+  const input = page.getByRole('textbox', { name: '训练输入' })
+  await input.pressSequentially('X')
+  await expect(page.getByTestId('training-counts')).toContainText('错误 1')
+  await page.evaluate(() => { (window as unknown as { allowAudio: boolean }).allowAudio = true })
+  await page.getByRole('button', { name: '重试音效', exact: true }).click()
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  await input.pressSequentially('Y')
+  await expect.poll(() => page.evaluate(() => (window as unknown as { testTones: number[] }).testTones)).toEqual([440])
 })

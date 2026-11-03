@@ -48,6 +48,7 @@ week02/
 3. 检查现有 `week02/homework/typing/`：若已有旧版，先下载备份并核对，只替换这个项目目录内的文件，不删除其他作业。
 4. 可在仓库根通过 Add file → Upload files 拖入解压后的 week02 文件夹；务必在提交预览中确认新增/修改路径**全部以 week02/homework/typing/ 开头**。浏览器若不支持文件夹拖入，请用下述 Git 方法。
 5. 如果网页已位于 week02/homework，不再拖入 week02 层，只拖入 typing 文件夹，避免路径重复。
+   网页上传通常每批最多 100 个文件；本项目文件超过一批，建议优先用 Git。若分批上传，始终维持相同目录前缀，最后检查所有批次文件齐全，再交作业。
 6. 检查隐藏的 .gitignore、public/.nojekyll、dist/.nojekyll 也包含在提交中。没有 node_modules；dist/assets 与 dist/index.html 均存在。
 7. 不要把压缩包本身作为唯一作业文件上传，也不要用项目 README 覆盖学校仓库根 README。
 8. 提交信息可用 `feat: submit week02 typing homework`。若组织要求 PR，选择创建分支并按老师流程提交 PR；否则按实际权限提交到要求的分支。

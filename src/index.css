@@ -368,3 +368,40 @@ textarea { resize: vertical; line-height: 1.8; }
 [data-theme="dark"] .training-session progress, [data-theme="dark"] .training-session progress::-webkit-progress-bar { background: #343448; }
 [data-theme="dark"] .recharts-cartesian-grid line { stroke: #3a3b50; }
 [data-theme="dark"] .recharts-cartesian-axis-tick text { fill: #b0afc4; }
+
+/* Stage eight: compact derived insights, independent of the typing viewport. */
+.daily-goal { display: flex; align-items: center; gap: 20px; padding: 16px 20px; min-width: 0; }
+.goal-label { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.goal-label > svg { color: var(--primary); }
+.goal-label > strong { font-size: 14px; }
+.goal-progress { display: flex; align-items: center; gap: 12px; margin-left: auto; min-width: 130px; flex: 1; max-width: 320px; }
+.goal-progress progress { width: 100%; margin: 0; height: 6px; border: 0; border-radius: 6px; overflow: hidden; appearance: none; background: var(--border); accent-color: var(--primary); }
+.goal-progress progress::-webkit-progress-bar { background: var(--border); }
+.goal-progress progress::-webkit-progress-value { background: var(--primary); }
+.goal-progress progress::-moz-progress-bar { background: var(--primary); }
+.goal-progress > span { font-size: 12px; min-width: 34px; text-align: right; }
+.daily-goal > a { white-space: nowrap; }
+.daily-goal-form > div { display: flex; align-items: center; gap: 12px; }
+.daily-goal-form input { width: 130px; }
+.training-insights { padding: 20px; min-width: 0; }
+.habit-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.habit-grid > div { display: grid; gap: 6px; }
+.habit-grid strong { font-size: 22px; }
+.habit-grid strong small { font-size: 12px; font-weight: 400; color: var(--muted); }
+.error-analysis { margin-top: 18px; border-top: 1px solid var(--border); padding-top: 14px; }
+.error-analysis > summary { cursor: pointer; font-size: 14px; font-weight: 600; }
+.error-analysis-body { display: grid; gap: 14px; padding-top: 16px; }
+.error-analysis-body .section-heading { margin: 0; flex-wrap: wrap; }
+.error-analysis-body label { display: flex; gap: 8px; align-items: center; }
+.error-character-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.error-character-list li { display: grid; grid-template-columns: minmax(42px, 1fr) auto 64px; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+.error-character-list li > strong { overflow-wrap: anywhere; white-space: pre-wrap; }
+.error-character-list li > span:last-child { text-align: right; color: var(--error); }
+.insights-empty { padding: 18px 0; text-align: center; color: var(--muted); font-size: 13px; }
+@media (max-width: 600px) {
+  .daily-goal { flex-wrap: wrap; gap: 12px; padding: 16px; }
+  .goal-label { width: 100%; }
+  .goal-progress { margin-left: 0; max-width: none; }
+  .training-insights { padding: 16px; }
+  .error-character-list li { gap: 8px; grid-template-columns: minmax(30px, 1fr) auto 55px; }
+}

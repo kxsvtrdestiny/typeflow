@@ -2,6 +2,7 @@ import { lazy, Suspense, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import PageHeading from '../components/common/PageHeading'
 import ConfirmDialog from '../components/common/ConfirmDialog'
+import TrainingInsights from '../components/history/TrainingInsights'
 import HistorySummary from '../components/history/HistorySummary'
 const HistoryTrend = lazy(() => import('../components/history/HistoryTrend'))
 import HistoryList from '../components/history/HistoryList'
@@ -25,6 +26,7 @@ export default function History() {
     <div className="page-title-row"><PageHeading title="训练记录" /><button className="button secondary" disabled={!records.length && !error} onClick={() => setDeleting('all')}><Trash2 size={16} />清空记录</button></div>
     <HistoryStorageNotice />
     <HistorySummary records={records} />
+    <TrainingInsights records={records} />
     <div className="history-filters"><label>语言<select value={language} onChange={(event) => { const value = event.target.value as Language | 'all'; setLanguage(value); if (value !== 'all') setTrendLanguage(value) }}><option value="all">全部语言</option><option value="zh">中文</option><option value="en">English</option></select></label><label>训练模式<select value={mode} onChange={(event) => setMode(event.target.value as TrainingMode | 'all')}><option value="all">全部模式</option><option value="free">自由训练</option><option value="timed">限时训练</option></select></label><label>日期排序<select value={oldest ? 'oldest' : 'newest'} onChange={(event) => setOldest(event.target.value === 'oldest')}><option value="newest">最新在前</option><option value="oldest">最早在前</option></select></label><span className="muted small">顶部统计包含全部记录</span></div>
     <Suspense fallback={<div className="card history-chart-empty">正在加载趋势图…</div>}><HistoryTrend records={records} language={trendLanguage} mode={mode} onLanguage={setTrendLanguage} /></Suspense>
     <HistoryList records={filteredHistory(records, language, mode, oldest)} onDetails={setDetails} onDelete={setDeleting} />

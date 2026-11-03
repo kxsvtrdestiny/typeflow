@@ -4,6 +4,7 @@ import type { Language, TimedMinutes, TrainingArticle, TrainingMode, TrainingOut
 import { useTyping } from '../../hooks/useTyping'
 import TypingArea from './TypingArea'
 import { useTimer } from '../../hooks/useTimer'
+import { collectCharacterAnalysis } from '../../utils/trainingInsights'
 import { calculateMetrics } from '../../utils/typingMetrics'
 import { useTypingSounds } from '../../hooks/useTypingSounds'
 import { useSettingsStore } from '../../stores/useSettingsStore'
@@ -26,8 +27,9 @@ export default function TrainingSession({ article, language, themeId, themeName,
   const result = useMemo<TrainingOutcome | null>(() => session.status === 'completed' ? {
     articleId: article.id, articleTitle: article.title, themeId, themeName, language, mode, timedMinutes: minutes,
     startedAt: session.startedAt, completedAt: session.completedAt!, finishReason: session.finishReason!,
+    characterAnalysis: collectCharacterAnalysis(typing.expected, typing.actual),
     metrics: calculateMetrics(typing.correctCharacters, typing.submittedCharacters, session.totalInputCharacters, session.totalCorrectInputCharacters, session.accumulatedMs, typing.expected.length),
-  } : null, [session, article.id, article.title, themeId, themeName, language, mode, minutes, typing.correctCharacters, typing.submittedCharacters, typing.expected.length])
+  } : null, [session, article.id, article.title, themeId, themeName, language, mode, minutes, typing.correctCharacters, typing.submittedCharacters, typing.expected, typing.actual])
   const sounds = useTypingSounds(attemptId, session, preferences)
   function startTraining() {
     const next = { ...useSettingsStore.getState().settings }

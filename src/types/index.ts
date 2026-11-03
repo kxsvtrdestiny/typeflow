@@ -55,7 +55,13 @@ export interface CharacterError {
   count: number
 }
 
-/** Version-one history snapshot; no article body or user input is stored. */
+/** Aggregated final positions; no ordered input or actual user text is stored. */
+export interface CharacterAnalysis {
+  version: 1
+  characters: { expected: string | null; attempts: number; errors: number }[]
+}
+
+/** History snapshot; no article body or user input is stored. */
 export interface TrainingRecord extends TrainingOutcome {
   id: string
 }
@@ -88,5 +94,6 @@ export interface TrainingOutcome {
   startedAt: string | null
   completedAt: string
   finishReason: 'article-completed' | 'time-expired'
+  characterAnalysis?: CharacterAnalysis
   metrics: import('../utils/typingMetrics').LiveMetrics
 }

@@ -52,7 +52,7 @@ Vite base 使用 ./，路由使用 URL hash，适配静态服务器和子目录�
 
 ## 当前限制
 
-当前已包含实时训练与历史统计、TXT/DOCX 导入、设置和数据重置。第六阶段及此前 Windows 实机验收已通过；第七阶段新增文件样本、音效、主题和重置仍待 Windows 人工验收。云端事件模拟不能替代真实设备验证。
+当前已包含实时训练与历史统计、TXT/DOCX 导入、设置和数据重置。第六阶段及此前 Windows 实机验收已通过；第七阶段文件导入、设置、音效、深色模式及数据重置已由用户确认 Windows 人工验收通过。云端事件模拟不能替代真实设备验证。
 
 ## 第一阶段版本与验证
 
@@ -417,7 +417,7 @@ Web Audio 在开始/继续的用户操作中解锁；使用本地生成的简短
 
 另使用实际 dist 在 /typeflow/ 子目录验证 DOCX Worker 资源加载、导入文章训练、历史持久化与懒加载趋势图，全部通过。
 
-浏览器音效测试使用模拟 AudioContext 验证触发时机与频率，不等于 Windows 声卡可听效果验证。截图来自实际运行的独立演示会话，不是默认数据。第七阶段等待 Windows 人工验收，未进入第八阶段。
+浏览器音效测试使用模拟 AudioContext 验证触发时机与频率，不等于 Windows 声卡可听效果验证。截图来自实际运行的独立演示会话，不是默认数据。第七阶段 Windows 人工验收及最终自动化回归均已通过，未进入第八阶段。
 
 [导入编辑预览](./imgs/stage7-import-preview.png) · [浅色设置](./imgs/stage7-settings-light.png) · [深色设置](./imgs/stage7-settings-dark.png) · [深色训练](./imgs/stage7-dark-practice.png) · [移动端设置](./imgs/stage7-settings-mobile.png)
 
@@ -429,4 +429,8 @@ Windows 人工测试报告打开错误音效后听不到声音。代码确认正
 
 增加异步恢复丢音（修复前失败、修复后通过）、恢复失败及重试、暂停/销毁后不补播测试；浏览器覆盖全部四种独立开关组合、正确/错误 IME 候选提交、删除/暂停/完成抑制。另通过真实 Chromium AudioContext 和 AnalyserNode 检测错误音的 440Hz 振荡器及非零采样信号，而非仅模拟播放函数；这仍不代表 Windows 实体扬声器听音验收。未修改核心输入、IME、自然排版或计时逻辑。
 
-本次音效修复完整验证：83 项单元/组件测试、51 项浏览器测试、TypeScript 检查及 npm run build 全部通过，dist 已更新。等待 Windows 实际听音复测。
+本次音效修复完整验证：83 项单元/组件测试、51 项浏览器测试、TypeScript 检查及 npm run build 全部通过，dist 已更新。Windows 实际听音复测已由用户确认通过。
+
+### 第七阶段最终验收
+
+2026-11-03 用户确认全部 Windows 人工测试通过；最终重新执行 83 项单元/组件测试、51 项 Chromium 浏览器测试、TypeScript 检查及生产构建，全部通过。实际 dist 子目录访问通过，发布分支文件树与 dist 一致。云环境代理拒绝 Pages 网站与 GitHub API 请求，无法独立确认公网部署状态。完整检查、提交和限制见 [第七阶段最终验收报告](./docs/STAGE7_ACCEPTANCE.md)。第七阶段结束，未启动第八阶段。

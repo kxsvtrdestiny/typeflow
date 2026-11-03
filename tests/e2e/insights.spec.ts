@@ -72,7 +72,7 @@ test('new English records aggregate retained case-sensitive errors after Backspa
   await page.goto('/#/history')
   await page.getByText('错误字符分析', { exact: true }).click()
   await page.getByRole('group', { name: '错误分析语言' }).getByRole('button', { name: 'English' }).click()
-  await expect(page.locator('.error-character-list')).toContainText('C1 次错误 / 1 次匹配错误率 100.0%')
+  await expect(page.locator('.error-character-list')).toContainText('C1 次错误 / 已比较 1 次错误率 100.0%')
   await page.getByRole('combobox', { name: '错误分析排序' }).selectOption('highRate')
   await expect(page.locator('.error-character-list li')).toHaveCount(1)
   await page.getByRole('group', { name: '错误分析语言' }).getByRole('button', { name: '中文', exact: true }).click()

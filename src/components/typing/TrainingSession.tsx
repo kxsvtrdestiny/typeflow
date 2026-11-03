@@ -5,6 +5,7 @@ import { useTyping } from '../../hooks/useTyping'
 import TypingArea from './TypingArea'
 import { useTimer } from '../../hooks/useTimer'
 import { calculateMetrics } from '../../utils/typingMetrics'
+import { useSaveHistory } from '../../hooks/useSaveHistory'
 import TrainingStats from './TrainingStats'
 import TrainingResult from './TrainingResult'
 interface Props { article: TrainingArticle; language: Language; themeId: string; themeName: string }
@@ -14,6 +15,7 @@ export default function TrainingSession({ article, language, themeId, themeName 
   const [minutes, setMinutes] = useState<TimedMinutes>(1)
   const limitMs = mode === 'timed' ? minutes * 60000 : undefined
   const typing = useTyping(snapshot, limitMs)
+  const [attemptId, setAttemptId] = useState(() => crypto.randomUUID())
   const [revision, setRevision] = useState(0)
   const { session } = typing
   const elapsed = useTimer(session.status, typing.elapsedMs, typing.tick)
@@ -23,7 +25,8 @@ export default function TrainingSession({ article, language, themeId, themeName 
     startedAt: session.startedAt, completedAt: session.completedAt!, finishReason: session.finishReason!,
     metrics: calculateMetrics(typing.correctCharacters, typing.submittedCharacters, session.totalInputCharacters, session.totalCorrectInputCharacters, session.accumulatedMs, typing.expected.length),
   } : null, [session, article.id, article.title, themeId, themeName, language, mode, minutes, typing.correctCharacters, typing.submittedCharacters, typing.expected.length])
-  function restart() { typing.restart(); setRevision((value) => value + 1) }
+  const saved = useSaveHistory(attemptId, result)
+  function restart() { setAttemptId(crypto.randomUUID()); typing.restart(); setRevision((value) => value + 1) }
   function changeMode(next: TrainingMode, duration = minutes) {
     if ((session.status === 'running' || session.status === 'paused') && !window.confirm('更改训练模式将放弃当前训练，确定继续吗？')) return
     restart(); setMode(next); setMinutes(duration)
@@ -53,6 +56,11 @@ export default function TrainingSession({ article, language, themeId, themeName 
     <TypingArea language={language} key={revision} slots={typing.slots} value={session.value} status={session.status} onCommit={typing.commit} />
     <div className="training-progress" data-testid="training-counts"><label htmlFor="training-progress">训练进度 {Math.round(typing.progress * 100)}%</label><span>已输入 {typing.submittedCharacters} · 正确 {typing.correctCharacters} · 错误 {typing.incorrectCharacters}</span></div>
     <progress id="training-progress" max={1} value={typing.progress} />
+    {result && <div className="history-save-status" role={saved.status === 'failed' ? 'alert' : 'status'}>
+      {(saved.status === 'saved' || saved.status === 'duplicate') && <span>成绩已保存到训练记录</span>}
+      {saved.status === 'invalid' && <span>有效时间或输入不足，本次不保存训练记录。</span>}
+      {saved.status === 'failed' && <><span>成绩未保存。{saved.error ?? '请检查本地存储。'}离开页面会丢失本次待保存成绩。</span><button className="button secondary" onClick={saved.retry}>重试保存</button></>}
+    </div>}
     {result && <TrainingResult result={result} onRetry={restart} />}
   </section>
 }

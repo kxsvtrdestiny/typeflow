@@ -55,18 +55,9 @@ export interface CharacterError {
   count: number
 }
 
-export interface TrainingRecord {
+/** Version-one history snapshot; no article body or user input is stored. */
+export interface TrainingRecord extends TrainingOutcome {
   id: string
-  config: TrainingConfig
-  themeName: string
-  articleTitle: string
-  startedAt: string
-  completedAt: string
-  finishReason: 'article-completed' | 'time-expired'
-  metrics: TypingMetrics
-  errors: CharacterError[]
-  /** Local calendar date (YYYY-MM-DD) to active milliseconds. */
-  activeMsByDate: Record<string, number>
 }
 
 export interface UserSettings {

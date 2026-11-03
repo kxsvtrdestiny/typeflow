@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
+import { useHistorySync } from '../../hooks/useHistorySync'
 import Sidebar from './Sidebar'
 import Header from './Header'
 import { useLayoutStore } from '../../stores/useLayoutStore'
 
 export default function AppLayout() {
+  useHistorySync()
   const open = useLayoutStore((s) => s.menuOpen)
   const setOpen = useLayoutStore((s) => s.setMenuOpen)
   const path = useLocation().pathname

@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { useSettingsStore } from '../stores/useSettingsStore'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import PageHeading from '../components/common/PageHeading'
@@ -9,7 +11,8 @@ export default function Practice() {
   const [query, setQuery] = useSearchParams()
   const custom = useLibraryStore((s) => s.customThemes)
   const themes = [...defaultThemes, ...custom]
-  const requestedLanguage = query.get('language') === 'en' ? 'en' : 'zh'
+  const [defaults] = useState(() => useSettingsStore.getState().settings)
+  const requestedLanguage = query.has('language') ? (query.get('language') === 'en' ? 'en' : 'zh') : defaults.defaultLanguage
   const themeId = query.get('themeId')
   const themeName = query.get('theme')
   const theme = themeId ? themes.find((t) => t.id === themeId)
@@ -24,7 +27,7 @@ export default function Practice() {
     if ((status === 'running' || status === 'paused') && !window.confirm('切换文章将清空本次输入，确定继续吗？')) return
     const nextTheme = nextThemeId ? themes.find((t) => t.id === nextThemeId) : themes.find((t) => t.language === nextLanguage && t.articles.length)
     const nextArticle = nextArticleId ?? nextTheme?.articles[0]?.id
-    setQuery({ language: nextLanguage, ...(nextTheme ? { themeId: nextTheme.id } : {}), ...(nextArticle ? { articleId: nextArticle } : {}) })
+    setQuery({ language: nextLanguage, ...(query.has('mode') ? { mode: query.get('mode')! } : {}), ...(query.has('minutes') ? { minutes: query.get('minutes')! } : {}), ...(nextTheme ? { themeId: nextTheme.id } : {}), ...(nextArticle ? { articleId: nextArticle } : {}) })
   }
 
   return <div className="practice-page">
@@ -38,7 +41,7 @@ export default function Practice() {
       </div>
       {theme && article && <p className="muted small">{theme.name} · {article.title}</p>}
     </section>
-    {theme && article ? <TrainingSession key={`${theme.id}:${article.id}`} article={article} language={language} themeId={theme.id} themeName={theme.name} /> : <div className="card empty-state"><p role="status">主题或文章不存在，或此主题暂无文章。</p><Link className="text-link" to="/library">前往词库选择</Link></div>}
+    {theme && article ? <TrainingSession key={`${theme.id}:${article.id}:${query.get('mode') ?? ''}:${query.get('minutes') ?? ''}`} initialMode={query.get('mode') === 'timed' || query.get('mode') === 'free' ? query.get('mode') as 'timed' | 'free' : defaults.defaultMode} initialMinutes={[1, 3, 5, 10].includes(Number(query.get('minutes'))) ? Number(query.get('minutes')) as 1 | 3 | 5 | 10 : defaults.defaultTimedMinutes} article={article} language={language} themeId={theme.id} themeName={theme.name} /> : <div className="card empty-state"><p role="status">主题或文章不存在，或此主题暂无文章。</p><Link className="text-link" to="/library">前往词库选择</Link></div>}
     <Link className="text-link" to="/">返回首页</Link>
   </div>
 }

@@ -23,3 +23,13 @@ it('does not resurrect a deleted record on an unchanged completed screen', () =>
   rerender({ result: outcome })
   expect(useHistoryStore.getState().records).toHaveLength(0)
 })
+
+it('never backfills an outcome completed with auto-save disabled', () => {
+  const outcome = historyFixture()
+  const { result, rerender } = renderHook(({ enabled }) => useSaveHistory('disabled-attempt', outcome, enabled), { initialProps: { enabled: false } })
+  expect(result.current.status).toBe('disabled')
+  expect(useHistoryStore.getState().records).toHaveLength(0)
+  rerender({ enabled: true })
+  expect(result.current.status).toBe('disabled')
+  expect(useHistoryStore.getState().records).toHaveLength(0)
+})

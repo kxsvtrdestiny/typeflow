@@ -326,3 +326,45 @@ textarea { resize: vertical; line-height: 1.8; }
 }
 /* Recharts keeps a hidden tooltip at its previous desktop coordinate after resize. */
 .trend-chart { overflow: clip; }
+
+.settings-page { display: grid; gap: 18px; max-width: 860px; }
+.settings-page .page-heading { margin-bottom: 0; }
+.settings-group { padding: 22px; display: grid; gap: 16px; }
+.settings-group h2 { font-size: 17px; }
+.settings-group label { display: flex; align-items: center; justify-content: space-between; gap: 16px; font-size: 13px; }
+.settings-group select { min-width: 140px; }
+.settings-group input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--primary); }
+.import-button { justify-self: start; }
+
+/* Theme overrides contain colors only; fonts and typing geometry stay unchanged. */
+:root[data-theme="dark"] { color: #e8e7f2; background: #171823; --primary: #a59cff; --muted: #b0afc4; --border: #39394c; --success: #63d99d; --error: #ff8da0; }
+[data-theme="dark"] .sidebar, [data-theme="dark"] .app-header, [data-theme="dark"] .card, [data-theme="dark"] .modal, [data-theme="dark"] .skip-link { background: #232432; color: #e8e7f2; }
+[data-theme="dark"] .nav-item, [data-theme="dark"] .breadcrumb, [data-theme="dark"] .breadcrumb strong, [data-theme="dark"] .header-label, [data-theme="dark"] .sidebar-footer { color: #b8b6ce; }
+[data-theme="dark"] .nav-item:hover, [data-theme="dark"] .icon-button:hover { background: #303044; }
+[data-theme="dark"] .nav-item.active { background: #393354; color: #c1baff; }
+[data-theme="dark"] .welcome-card { background: #302c49; border-color: #4a4168; }
+[data-theme="dark"] .welcome-card h2, [data-theme="dark"] h1, [data-theme="dark"] h2, [data-theme="dark"] h3 { color: #edebfa; }
+[data-theme="dark"] .welcome-symbol, [data-theme="dark"] .language-icon, [data-theme="dark"] .empty-icon { background: #38314f; color: #c1baff; border-color: #4a4168; }
+[data-theme="dark"] .welcome-card p, [data-theme="dark"] .welcome-card .eyebrow, [data-theme="dark"] .stat-label, [data-theme="dark"] .stat-value span, [data-theme="dark"] .record-title time, [data-theme="dark"] .article-preview, [data-theme="dark"] .delete-message, [data-theme="dark"] .editor-form label { color: #b8b6ce; }
+[data-theme="dark"] input, [data-theme="dark"] textarea, [data-theme="dark"] select, [data-theme="dark"] .search-field { background: #1c1d2b; color: #e8e7f2; border-color: #4a495f; }
+[data-theme="dark"] .button.secondary { background: #2b2b3d; color: #dedbec; }
+[data-theme="dark"] .button.primary { background: #7566d7; color: white; }
+[data-theme="dark"] .brand-icon { background: #7566d7; }
+[data-theme="dark"] .badge, [data-theme="dark"] .theme-language-switch { background: #363046; color: #c9c2ff; }
+[data-theme="dark"] .badge.subtle { background: #30313e; color: #c0bdd0; }
+[data-theme="dark"] .theme-language-switch button[aria-pressed="true"] { background: #51446f; color: #ece7ff; }
+[data-theme="dark"] .typing-viewport { background: #1b1c29; }
+[data-theme="dark"] .typing-cell { color: #b5b3c9; }
+[data-theme="dark"] .typing-cell.correct { color: #63d99d; }
+[data-theme="dark"] .typing-cell.incorrect { color: #ff9aac; background: #512c3b; }
+[data-theme="dark"] .typing-cell.current { background-color: #293e62; box-shadow: inset 2px 0 #99baff; }
+[data-theme="dark"] .input-row .typing-cell.pending { color: transparent; }
+[data-theme="dark"] .native-typing-input { background: transparent; color: transparent; }
+[data-theme="dark"] .form-error, [data-theme="dark"] .history-save-status[role="alert"] { color: #ff9aac; }
+[data-theme="dark"] .storage-notice { background: #3e3326; color: #f0cc8e; border-color: #776240; }
+[data-theme="dark"] .recharts-default-tooltip { background-color: #272837 !important; color: #edeafa; border-color: #4a495f !important; }
+[data-theme="dark"] .record-meta strong, [data-theme="dark"] .recent-record h3 { color: #dedbec; }
+[data-theme="dark"] .training-complete { color: #63d99d; }
+[data-theme="dark"] .training-session progress, [data-theme="dark"] .training-session progress::-webkit-progress-bar { background: #343448; }
+[data-theme="dark"] .recharts-cartesian-grid line { stroke: #3a3b50; }
+[data-theme="dark"] .recharts-cartesian-axis-tick text { fill: #b0afc4; }

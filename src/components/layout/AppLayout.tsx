@@ -1,15 +1,19 @@
 import { useEffect, useRef } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
+import { useAppTheme } from '../../hooks/useAppTheme'
 import { useHistorySync } from '../../hooks/useHistorySync'
+import { useSettingsStore } from '../../stores/useSettingsStore'
 import Sidebar from './Sidebar'
 import Header from './Header'
 import { useLayoutStore } from '../../stores/useLayoutStore'
 
 export default function AppLayout() {
   useHistorySync()
+  useAppTheme()
   const open = useLayoutStore((s) => s.menuOpen)
   const setOpen = useLayoutStore((s) => s.setMenuOpen)
   const path = useLocation().pathname
+  const settingsError = useSettingsStore((state) => state.error)
   const sidebarRef = useRef<HTMLDivElement>(null)
   useEffect(() => { setOpen(false) }, [path, setOpen])
   useEffect(() => {
@@ -44,7 +48,7 @@ export default function AppLayout() {
       <div ref={sidebarRef}><Sidebar /></div>
       <div className="main-shell" inert={open || undefined}>
         <Header />
-        <main id="main-content" className="main-content" tabIndex={-1}><Outlet /></main>
+        <main id="main-content" className="main-content" tabIndex={-1}>{settingsError && path !== '/settings' && <div className="storage-notice" role="alert">{settingsError}</div>}<Outlet /></main>
       </div>
     </div>
   )

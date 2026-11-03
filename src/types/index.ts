@@ -63,6 +63,7 @@ export interface TrainingRecord extends TrainingOutcome {
 export interface UserSettings {
   theme: ThemeMode
   defaultLanguage: Language
+  defaultMode: TrainingMode
   defaultTimedMinutes: TimedMinutes
   correctSound: boolean
   incorrectSound: boolean

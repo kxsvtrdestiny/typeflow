@@ -24,12 +24,10 @@ svg { flex-shrink: 0; }
 .nav-item.active { background: #eeedfc; color: #554bc8; box-shadow: inset 3px 0 0 var(--primary); }
 .sidebar-footer { margin-top: auto; padding: 24px 8px 0; border-top: 1px solid var(--border); font-size: 11px; color: #75798b; }
 .sidebar-footer small { display: block; font-size: 11px; color: inherit; }
-.status-dot { display: inline-block; background: var(--success); width: 6px; height: 6px; border-radius: 50%; margin-right: 8px; }
 .main-shell { margin-left: 248px; min-width: 0; }
 .app-header { height: 76px; border-bottom: 1px solid var(--border); background: #fff; padding: 0 40px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
 .breadcrumb { display: flex; gap: 12px; align-items: center; font-size: 12px; color: #8b8da0; }
 .breadcrumb strong { color: #4e5063; font-weight: 500; }
-.header-label { font-size: 11px; color: #9092a3; letter-spacing: 1px; }
 .main-content { max-width: 1440px; margin: 0 auto; padding: 32px 40px 48px; outline: none; }
 .page-heading { margin-bottom: 25px; }
 .page-heading > p:last-child { color: var(--muted); font-size: 13px; margin-top: 6px; line-height: 1.8; }
@@ -97,7 +95,6 @@ svg { flex-shrink: 0; }
 @media (max-width: 639px) {
   .main-content { padding: 24px 18px 36px; }
   .app-header { padding: 0 12px; }
-  .header-label { display: none; }
   .dashboard { gap: 24px; }
   .welcome-card { padding: 25px 22px; }
   .welcome-card h2 { font-size: 23px; }
@@ -172,6 +169,7 @@ textarea { resize: vertical; line-height: 1.8; }
 .row-actions { display: flex; gap: 4px; }
 .row-actions .icon-button { width: 32px; height: 30px; }
 .detail-summary { padding: 20px; display: grid; gap: 12px; }
+.detail-summary h2 { overflow-wrap: anywhere; }
 .detail-summary p { overflow-wrap: anywhere; }
 .article-list { display: grid; gap: 14px; }
 .article-card { padding: 20px; min-width: 0; }
@@ -180,7 +178,7 @@ textarea { resize: vertical; line-height: 1.8; }
 .article-heading .badge-row { flex-shrink: 0; align-items: center; gap: 8px; }
 .article-preview { margin-top: 14px; font-size: 13px; line-height: 1.9; color: #6c6e82; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 190px; overflow-y: auto; }
 .inline-icon { display: inline; vertical-align: middle; margin-right: 5px; }
-.modal { border: 1px solid var(--border); border-radius: 16px; padding: 24px; width: min(600px,calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; color: #252638; box-shadow: 0 20px 80px #20194024; }
+.modal { margin: auto; border: 1px solid var(--border); border-radius: 16px; padding: 24px; width: min(600px,calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; color: #252638; box-shadow: 0 20px 80px #20194024; }
 .modal::backdrop { background: #18152b66; }
 .modal-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
 .editor-form { display: grid; gap: 16px; }
@@ -339,7 +337,7 @@ textarea { resize: vertical; line-height: 1.8; }
 /* Theme overrides contain colors only; fonts and typing geometry stay unchanged. */
 :root[data-theme="dark"] { color: #e8e7f2; background: #171823; --primary: #a59cff; --muted: #b0afc4; --border: #39394c; --success: #63d99d; --error: #ff8da0; }
 [data-theme="dark"] .sidebar, [data-theme="dark"] .app-header, [data-theme="dark"] .card, [data-theme="dark"] .modal, [data-theme="dark"] .skip-link { background: #232432; color: #e8e7f2; }
-[data-theme="dark"] .nav-item, [data-theme="dark"] .breadcrumb, [data-theme="dark"] .breadcrumb strong, [data-theme="dark"] .header-label, [data-theme="dark"] .sidebar-footer { color: #b8b6ce; }
+[data-theme="dark"] .nav-item, [data-theme="dark"] .breadcrumb, [data-theme="dark"] .breadcrumb strong, [data-theme="dark"] .sidebar-footer { color: #b8b6ce; }
 [data-theme="dark"] .nav-item:hover, [data-theme="dark"] .icon-button:hover { background: #303044; }
 [data-theme="dark"] .nav-item.active { background: #393354; color: #c1baff; }
 [data-theme="dark"] .welcome-card { background: #302c49; border-color: #4a4168; }

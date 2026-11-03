@@ -49,3 +49,73 @@ describe('fixed-text session state', () => {
     expect(result.current.session.status).toBe('completed')
   })
 })
+
+describe('stage-five event totals and deadlines', () => {
+  it('keeps cumulative errors after correction and resets every counter on restart', () => {
+    const { result } = renderHook(() => useTyping('ABCDEF'))
+    act(() => { result.current.start(); result.current.commit('AX'); result.current.commit('A'); result.current.commit('AB') })
+    expect(result.current.correctCharacters).toBe(2)
+    expect(result.current.session).toMatchObject({ totalInputCharacters: 3, totalCorrectInputCharacters: 2 })
+    act(() => result.current.restart())
+    expect(result.current.session).toMatchObject({ totalInputCharacters: 0, totalCorrectInputCharacters: 0, accumulatedMs: 0, startedAt: null })
+  })
+  it('checks deadline before admitting input and freezes the final elapsed time', () => {
+    let now = 0
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now)
+    const { result } = renderHook(() => useTyping('ABCDEF', 60000))
+    act(() => { result.current.start(); result.current.commit('A') })
+    now = 60001
+    act(() => result.current.commit('ABCDEF'))
+    expect(result.current.session).toMatchObject({ status: 'completed', finishReason: 'time-expired', value: 'A', totalInputCharacters: 1 })
+    expect(result.current.elapsedMs()).toBe(60000)
+    now = 900000
+    act(() => { result.current.tick(); result.current.commit('X') })
+    expect(result.current.elapsedMs()).toBe(60000)
+    expect(result.current.session.totalInputCharacters).toBe(1)
+    clock.mockRestore()
+  })
+  it('does not start the clock until formal text and excludes all paused time', () => {
+    let now = 0
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now)
+    const { result } = renderHook(() => useTyping('ABCDEF', 60000))
+    act(() => result.current.start())
+    now = 90000
+    act(() => result.current.tick())
+    expect(result.current.elapsedMs()).toBe(0)
+    act(() => result.current.commit('A'))
+    now = 100000
+    act(() => result.current.pause())
+    now = 900000
+    act(() => { result.current.tick(); result.current.commit('X') })
+    expect(result.current.elapsedMs()).toBe(10000)
+    act(() => result.current.resume())
+    now = 950000
+    act(() => result.current.tick())
+    expect(result.current.session.finishReason).toBe('time-expired')
+    expect(result.current.elapsedMs()).toBe(60000)
+    clock.mockRestore()
+  })
+  it('pauses on window blur and does not resume automatically', () => {
+    const { result } = renderHook(() => useTyping('ABCDEF'))
+    act(() => { result.current.start(); result.current.commit('A'); window.dispatchEvent(new Event('blur')) })
+    expect(result.current.session.status).toBe('paused')
+    act(() => window.dispatchEvent(new Event('focus')))
+    expect(result.current.session.status).toBe('paused')
+  })
+})
+
+describe('supported timed durations', () => {
+  it.each([60000, 180000, 300000, 600000])('ends exactly at active limit %s', (duration) => {
+    let now = 0
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now)
+    const { result } = renderHook(() => useTyping('ABCDEF', duration))
+    act(() => { result.current.start(); result.current.commit('A') })
+    now = duration - 1
+    act(() => result.current.tick())
+    expect(result.current.session.status).toBe('running')
+    now = duration
+    act(() => result.current.tick())
+    expect(result.current.session).toMatchObject({ status: 'completed', finishReason: 'time-expired', accumulatedMs: duration })
+    clock.mockRestore()
+  })
+})

@@ -1,14 +1,33 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Play, Pause, RotateCcw } from 'lucide-react'
-import type { Language, TrainingArticle } from '../../types'
+import type { Language, TimedMinutes, TrainingArticle, TrainingMode, TrainingOutcome } from '../../types'
 import { useTyping } from '../../hooks/useTyping'
 import TypingArea from './TypingArea'
-interface Props { article: TrainingArticle; language: Language }
-export default function TrainingSession({ article, language }: Props) {
+import { useTimer } from '../../hooks/useTimer'
+import { calculateMetrics } from '../../utils/typingMetrics'
+import TrainingStats from './TrainingStats'
+import TrainingResult from './TrainingResult'
+interface Props { article: TrainingArticle; language: Language; themeId: string; themeName: string }
+export default function TrainingSession({ article, language, themeId, themeName }: Props) {
   const [snapshot] = useState(article.content)
-  const typing = useTyping(snapshot)
+  const [mode, setMode] = useState<TrainingMode>('free')
+  const [minutes, setMinutes] = useState<TimedMinutes>(1)
+  const limitMs = mode === 'timed' ? minutes * 60000 : undefined
+  const typing = useTyping(snapshot, limitMs)
   const [revision, setRevision] = useState(0)
   const { session } = typing
+  const elapsed = useTimer(session.status, typing.elapsedMs, typing.tick)
+  const metrics = calculateMetrics(typing.correctCharacters, typing.submittedCharacters, session.totalInputCharacters, session.totalCorrectInputCharacters, elapsed, typing.expected.length)
+  const result = useMemo<TrainingOutcome | null>(() => session.status === 'completed' ? {
+    articleId: article.id, articleTitle: article.title, themeId, themeName, language, mode, timedMinutes: minutes,
+    startedAt: session.startedAt, completedAt: session.completedAt!, finishReason: session.finishReason!,
+    metrics: calculateMetrics(typing.correctCharacters, typing.submittedCharacters, session.totalInputCharacters, session.totalCorrectInputCharacters, session.accumulatedMs, typing.expected.length),
+  } : null, [session, article.id, article.title, themeId, themeName, language, mode, minutes, typing.correctCharacters, typing.submittedCharacters, typing.expected.length])
+  function restart() { typing.restart(); setRevision((value) => value + 1) }
+  function changeMode(next: TrainingMode, duration = minutes) {
+    if ((session.status === 'running' || session.status === 'paused') && !window.confirm('更改训练模式将放弃当前训练，确定继续吗？')) return
+    restart(); setMode(next); setMinutes(duration)
+  }
   useEffect(() => {
     if (session.status !== 'running' && session.status !== 'paused') return
     const guard = (event: MouseEvent) => {
@@ -23,15 +42,17 @@ export default function TrainingSession({ article, language }: Props) {
   }, [session.status])
   const labels = { idle: '准备开始', running: '练习中', paused: '已暂停', completed: '已完成' }
   return <section data-training-status={session.status} className="card training-session" aria-label="打字练习区域">
+    <div className="training-mode-controls"><label>训练模式<select value={mode} onChange={(event) => changeMode(event.target.value as TrainingMode)}><option value="free">自由训练</option><option value="timed">限时训练</option></select></label>{mode === 'timed' && <label>限时时长<select value={minutes} onChange={(event) => changeMode(mode, Number(event.target.value) as TimedMinutes)}>{[1, 3, 5, 10].map((value) => <option key={value} value={value}>{value} 分钟</option>)}</select></label>}</div>
+    <TrainingStats language={language} metrics={metrics} remainingMs={limitMs === undefined ? undefined : Math.max(0, limitMs - elapsed)} />
     <div className="training-toolbar"><span role="status">{labels[session.status]}</span><div className="training-controls">
       {session.status === 'idle' && <button className="button primary" onClick={typing.start}><Play size={16} />开始训练</button>}
       {session.status === 'running' && <button className="button secondary" onPointerDown={(event) => event.preventDefault()} onClick={typing.pause}><Pause size={16} />暂停</button>}
       {session.status === 'paused' && <button className="button primary" onClick={typing.resume}><Play size={16} />继续</button>}
-      <button className="button secondary" onPointerDown={(event) => event.preventDefault()} onClick={() => { typing.restart(); setRevision((v) => v + 1) }}><RotateCcw size={16} />重新开始</button>
+      <button className="button secondary" onPointerDown={(event) => event.preventDefault()} onClick={restart}><RotateCcw size={16} />重新开始</button>
     </div></div>
     <TypingArea language={language} key={revision} slots={typing.slots} value={session.value} status={session.status} onCommit={typing.commit} />
     <div className="training-progress" data-testid="training-counts"><label htmlFor="training-progress">训练进度 {Math.round(typing.progress * 100)}%</label><span>已输入 {typing.submittedCharacters} · 正确 {typing.correctCharacters} · 错误 {typing.incorrectCharacters}</span></div>
     <progress id="training-progress" max={1} value={typing.progress} />
-    {session.status === 'completed' && <p className="training-complete" role="status">本篇练习已完成。可重新开始，或更换文章继续练习。</p>}
+    {result && <TrainingResult result={result} onRetry={restart} />}
   </section>
 }

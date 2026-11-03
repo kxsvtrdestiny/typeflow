@@ -83,3 +83,18 @@ export interface PersistedData<T> {
   version: number
   data: T
 }
+
+/** Stage-five immutable completion payload; no persistence side effects. */
+export interface TrainingOutcome {
+  articleId: string
+  articleTitle: string
+  themeId: string
+  themeName: string
+  language: Language
+  mode: TrainingMode
+  timedMinutes: TimedMinutes
+  startedAt: string | null
+  completedAt: string
+  finishReason: 'article-completed' | 'time-expired'
+  metrics: import('../utils/typingMetrics').LiveMetrics
+}

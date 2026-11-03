@@ -1,25 +1,29 @@
+import type { SubmittedEdit } from './typingMetrics'
+
 /** Input values, never key names, are the source of truth. */
-export function createImeInput(commit: (value: string) => void, preview: (text: string) => void) {
+export function createImeInput(commit: (value: string, edit?: SubmittedEdit) => void, preview: (text: string) => void) {
   let composing = false
   let lastValue = ''
-  function submit(value: string) {
-    if (value === lastValue) return
+  let lastEditId: number | undefined
+  function submit(value: string, edit?: SubmittedEdit) {
+    if (value === lastValue && (edit?.id === undefined || edit.id === lastEditId)) return
+    lastEditId = edit?.id
     lastValue = value
-    commit(value)
+    commit(value, edit)
   }
   return {
     start() { composing = true; preview('') },
     update(text: string) { if (composing) preview(text) },
-    input(value: string, isComposing: boolean) {
+    input(value: string, isComposing: boolean, edit?: SubmittedEdit) {
       if (composing || isComposing) return
-      submit(value)
+      submit(value, edit)
     },
-    end(value: string) {
+    end(value: string, edit?: SubmittedEdit) {
       if (!composing) return
       composing = false
       preview('')
       // Read the browser-owned value at compositionend; trailing input is deduplicated.
-      submit(value)
+      submit(value, edit)
     },
     reset(value: string) { composing = false; lastValue = value; preview('') },
     isComposing: () => composing,

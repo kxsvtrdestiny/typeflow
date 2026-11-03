@@ -1,12 +1,13 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createImeInput } from '../../utils/imeInput'
 import { offsetToIndex, visibleCharacter } from '../../utils/typingCharacters'
+import type { SubmittedEdit } from '../../utils/typingMetrics'
 import type { CharacterSlot } from '../../utils/typingCharacters'
 import { measurementText } from '../../utils/naturalTextLayout'
 import { useTypingLayout } from '../../hooks/useTypingLayout'
 import type { Language, TrainingStatus } from '../../types'
 
-interface Props { language: Language; slots: CharacterSlot[]; value: string; status: TrainingStatus; onCommit: (value: string) => void }
+interface Props { language: Language; slots: CharacterSlot[]; value: string; status: TrainingStatus; onCommit: (value: string, edit?: SubmittedEdit) => void }
 export default function TypingArea({ language, slots, value, status, onCommit }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const input = useRef<HTMLTextAreaElement>(null)
@@ -16,7 +17,9 @@ export default function TypingArea({ language, slots, value, status, onCommit }:
   const [anchor, setAnchor] = useState({ left: 0, top: 0 })
   const commitRef = useRef(onCommit)
   commitRef.current = onCommit
-  const ime = useMemo(() => createImeInput((text) => commitRef.current(text), setPreview), [])
+  const editRef = useRef<SubmittedEdit | undefined>(undefined)
+  const editSequence = useRef(0)
+  const ime = useMemo(() => createImeInput((text, edit) => commitRef.current(text, edit), setPreview), [])
   const { rows, widths, inputWidths, inkInsets } = useTypingLayout(language, slots, container)
   const enabled = status === 'running'
 
@@ -76,23 +79,27 @@ export default function TypingArea({ language, slots, value, status, onCommit }:
         ref={input} aria-label="训练输入" aria-describedby="typing-help" className="native-typing-input"
         style={{ left: anchor.left, top: anchor.top, width: inputWidths[caret] || 2 }} disabled={!enabled} defaultValue={value}
         wrap="off" spellCheck={false} autoComplete="off" autoCorrect="off" autoCapitalize="off"
-        onCompositionStart={() => { if (enabled) ime.start() }}
+        onCompositionStart={(event) => { if (enabled) {
+          editRef.current = { id: ++editSequence.current, selectionStart: event.currentTarget.selectionStart, selectionEnd: event.currentTarget.selectionEnd }
+          ime.start()
+        } }}
         onCompositionUpdate={(event) => { if (enabled) ime.update(event.data) }}
-        onCompositionEnd={(event) => { if (enabled) { ime.end(event.currentTarget.value); setCaret(offsetToIndex(event.currentTarget.value, event.currentTarget.selectionStart)) } else restore() }}
+        onCompositionEnd={(event) => { if (enabled) { ime.end(event.currentTarget.value, { ...editRef.current, insertedText: event.data }); setCaret(offsetToIndex(event.currentTarget.value, event.currentTarget.selectionStart)) } else restore() }}
         onInput={(event) => {
           if (!enabled) { restore(); return }
-          ime.input(event.currentTarget.value, (event.nativeEvent as InputEvent).isComposing)
+          ime.input(event.currentTarget.value, (event.nativeEvent as InputEvent).isComposing, editRef.current)
           selection()
         }}
         onChange={(event) => {
           if (!enabled) { restore(); return }
-          ime.input(event.currentTarget.value, (event.nativeEvent as InputEvent).isComposing)
+          ime.input(event.currentTarget.value, (event.nativeEvent as InputEvent).isComposing, editRef.current)
           selection()
         }}
         onSelect={selection}
         onBeforeInput={(event) => {
           const kind = (event.nativeEvent as InputEvent).inputType
-          if (!enabled || kind === 'insertFromPaste' || kind === 'insertFromDrop') event.preventDefault()
+          if (!enabled || kind === 'insertFromPaste' || kind === 'insertFromDrop') { event.preventDefault(); return }
+          if (!ime.isComposing()) editRef.current = { id: ++editSequence.current, inputType: kind, selectionStart: event.currentTarget.selectionStart, selectionEnd: event.currentTarget.selectionEnd, insertedText: (event.nativeEvent as InputEvent).data }
         }}
         onPaste={(event) => event.preventDefault()} onDrop={(event) => event.preventDefault()}
       />

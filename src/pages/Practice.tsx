@@ -38,7 +38,7 @@ export default function Practice() {
       </div>
       {theme && article && <p className="muted small">{theme.name} · {article.title}</p>}
     </section>
-    {theme && article ? <TrainingSession key={`${theme.id}:${article.id}`} article={article} language={language} /> : <div className="card empty-state"><p role="status">主题或文章不存在，或此主题暂无文章。</p><Link className="text-link" to="/library">前往词库选择</Link></div>}
+    {theme && article ? <TrainingSession key={`${theme.id}:${article.id}`} article={article} language={language} themeId={theme.id} themeName={theme.name} /> : <div className="card empty-state"><p role="status">主题或文章不存在，或此主题暂无文章。</p><Link className="text-link" to="/library">前往词库选择</Link></div>}
     <Link className="text-link" to="/">返回首页</Link>
   </div>
 }

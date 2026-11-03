@@ -1,0 +1,172 @@
+import { test, expect } from '@playwright/test'
+import type { Page } from '@playwright/test'
+
+async function prepare(page: Page, content = 'Hello world! Practice carefully.', language = 'en') {
+  await page.clock.install()
+  await page.addInitScript(({ text, lang }) => {
+    const now = new Date().toISOString()
+    localStorage.setItem('typeflow.library', JSON.stringify({ version: 1, data: [{
+      id: 'custom-stats', name: '统计测试', description: '', language: lang, difficulty: 'beginner', isDefault: false, createdAt: now, updatedAt: now,
+      articles: [
+        { id: 'stats-a', title: '统计文章', content: text, difficulty: 'beginner', createdAt: now, updatedAt: now },
+        { id: 'stats-b', title: '另一篇', content: 'Another article for testing.', difficulty: 'beginner', createdAt: now, updatedAt: now },
+      ],
+    }] }))
+  }, { text: content, lang: language })
+  await page.goto('/#/practice?themeId=custom-stats&articleId=stats-a')
+  await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now()) + 1000))
+}
+
+test('current accuracy corrects on deletion while cumulative input survives and same-text replacement counts once', async ({ page }) => {
+  await prepare(page)
+  await page.getByRole('button', { name: '开始训练', exact: true }).click()
+  const input = page.getByRole('textbox', { name: '训练输入' })
+  await input.pressSequentially('Hex')
+  await expect(page.getByTestId('live-accuracy')).toHaveText('66.7%')
+  await input.press('Backspace')
+  await expect(page.getByTestId('live-accuracy')).toHaveText('100.0%')
+  await expect(page.getByTestId('live-cumulative')).toHaveText('66.7%')
+  await input.pressSequentially('l')
+  await expect(page.getByTestId('live-cumulative')).toHaveText('75.0%')
+  await input.evaluate((node: HTMLTextAreaElement) => { node.setSelectionRange(0, 1) })
+  await input.pressSequentially('H')
+  await expect(page.locator('.live-stats')).toHaveAttribute('data-total-input', '5')
+  await expect(page.getByTestId('live-cumulative')).toHaveText('80.0%')
+  await page.getByRole('button', { name: '重新开始', exact: true }).click()
+  await expect(page.locator('.live-stats')).toHaveAttribute('data-total-input', '0')
+  await expect(page.getByTestId('live-elapsed')).toHaveText('00:00')
+})
+
+test('timed mode waits for first committed text, excludes pause and finishes once at deadline', async ({ page }) => {
+  await prepare(page)
+  await page.getByRole('combobox', { name: '训练模式', exact: true }).selectOption('timed')
+  await expect(page.getByRole('combobox', { name: '限时时长' }).locator('option')).toHaveCount(4)
+  await page.getByRole('button', { name: '开始训练', exact: true }).click()
+  await page.clock.fastForward(90000)
+  await expect(page.getByTestId('live-remaining')).toHaveText('01:00')
+  const input = page.getByRole('textbox', { name: '训练输入' })
+  await input.pressSequentially('H')
+  await page.clock.fastForward(10000)
+  await expect(page.getByTestId('live-elapsed')).toHaveText('00:10')
+  await page.getByRole('button', { name: '暂停', exact: true }).click()
+  await page.clock.fastForward(120000)
+  await expect(page.getByTestId('live-elapsed')).toHaveText('00:10')
+  await page.getByRole('button', { name: '继续', exact: true }).click()
+  await page.clock.fastForward(50000)
+  await expect(page.getByTestId('training-result')).toContainText('限时结束')
+  await expect(input).toBeDisabled()
+  await expect(page.getByTestId('live-elapsed')).toHaveText('01:00')
+  await expect(page.getByTestId('live-remaining')).toHaveText('00:00')
+  const result = await page.getByTestId('training-result').textContent()
+  await page.clock.fastForward(120000)
+  expect(await page.getByTestId('training-result').textContent()).toBe(result)
+  await page.getByRole('button', { name: '再练一次', exact: true }).click()
+  await expect(page.getByTestId('training-result')).toHaveCount(0)
+  await expect(input).toHaveValue('')
+  await expect(page.getByTestId('live-remaining')).toHaveText('01:00')
+})
+
+test('hidden pages auto-pause and require manual resume without a clock jump', async ({ page }) => {
+  await prepare(page)
+  await page.getByRole('button', { name: '开始训练', exact: true }).click()
+  await page.getByRole('textbox', { name: '训练输入' }).pressSequentially('He')
+  await page.clock.fastForward(5000)
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true })
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
+  await expect(page.locator('[data-training-status]')).toHaveAttribute('data-training-status', 'paused')
+  await page.clock.fastForward(120000)
+  await expect(page.getByTestId('live-elapsed')).toHaveText('00:05')
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false })
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
+  await expect(page.locator('[data-training-status]')).toHaveAttribute('data-training-status', 'paused')
+  await page.getByRole('button', { name: '继续', exact: true }).click()
+  await page.clock.fastForward(5000)
+  await expect(page.getByTestId('live-elapsed')).toHaveText('00:10')
+  await page.evaluate(() => window.dispatchEvent(new Event('blur')))
+  await expect(page.locator('[data-training-status]')).toHaveAttribute('data-training-status', 'paused')
+})
+
+test('completed result freezes correct-only WPM and mode/article resets require confirmation', async ({ page }) => {
+  await prepare(page, 'ABCDEF')
+  await page.getByRole('button', { name: '开始训练', exact: true }).click()
+  const input = page.getByRole('textbox', { name: '训练输入' })
+  await input.pressSequentially('A')
+  await page.clock.fastForward(1000)
+  page.once('dialog', (dialog) => dialog.dismiss())
+  await page.getByRole('combobox', { name: '训练模式', exact: true }).selectOption('timed')
+  await expect(page.getByRole('combobox', { name: '训练模式', exact: true })).toHaveValue('free')
+  await input.pressSequentially('BCDEF')
+  await expect(page.getByTestId('training-result')).toBeVisible()
+  await expect(page.getByTestId('live-speed')).toHaveText('72WPM')
+  await expect(page.getByTestId('training-result')).toContainText('100.0%')
+  await page.clock.fastForward(10000)
+  await expect(page.getByTestId('live-speed')).toHaveText('72WPM')
+  await page.getByRole('button', { name: '再练一次', exact: true }).click()
+  await page.getByRole('button', { name: '开始训练', exact: true }).click()
+  await input.pressSequentially('A')
+  page.once('dialog', (dialog) => dialog.accept())
+  await page.getByRole('combobox', { name: '训练文章' }).selectOption('stats-b')
+  await expect(page.getByTestId('live-accuracy')).toHaveText('0.0%')
+  await expect(page.locator('.live-stats')).toHaveAttribute('data-total-input', '0')
+})
+
+test('multi-character IME commit counts once, excludes pinyin and expires pending composition safely', async ({ page }) => {
+  await prepare(page, '你好，世界。继续练习。', 'zh')
+  await page.getByRole('combobox', { name: '训练模式', exact: true }).selectOption('timed')
+  await page.getByRole('button', { name: '开始训练', exact: true }).click()
+  const input = page.getByRole('textbox', { name: '训练输入' })
+  await input.evaluate((node: HTMLTextAreaElement) => {
+    node.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }))
+    node.value = 'nihao'
+    node.dispatchEvent(new CompositionEvent('compositionupdate', { data: 'nihao', bubbles: true }))
+    node.dispatchEvent(new InputEvent('input', { isComposing: true, bubbles: true }))
+  })
+  await page.clock.fastForward(5000)
+  await expect(page.locator('.live-stats')).toHaveAttribute('data-total-input', '0')
+  await expect(page.getByTestId('live-elapsed')).toHaveText('00:00')
+  await input.evaluate((node: HTMLTextAreaElement) => {
+    node.value = '你好'
+    node.dispatchEvent(new CompositionEvent('compositionend', { data: '你好', bubbles: true }))
+    node.dispatchEvent(new InputEvent('input', { data: '你好', bubbles: true }))
+  })
+  await expect(page.locator('.live-stats')).toHaveAttribute('data-total-input', '2')
+  await page.clock.fastForward(1000)
+  await expect(page.getByTestId('live-speed')).toHaveText('120CPM')
+  await input.evaluate((node: HTMLTextAreaElement) => {
+    node.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }))
+    node.value = '你好shijie'
+    node.dispatchEvent(new CompositionEvent('compositionupdate', { data: 'shijie', bubbles: true }))
+  })
+  await page.clock.fastForward(59000)
+  await expect(page.getByTestId('training-result')).toContainText('限时结束')
+  await expect(input).toHaveValue('你好')
+  await expect(page.locator('.live-stats')).toHaveAttribute('data-total-input', '2')
+})
+
+test('confirmed mode change resets counters and rejects actual paste', async ({ page }) => {
+  await prepare(page)
+  await page.getByRole('button', { name: '开始训练', exact: true }).click()
+  const input = page.getByRole('textbox', { name: '训练输入' })
+  await input.pressSequentially('Hex')
+  await page.clock.fastForward(3000)
+  page.once('dialog', (dialog) => dialog.accept())
+  await page.getByRole('combobox', { name: '训练模式', exact: true }).selectOption('timed')
+  await expect(input).toHaveValue('')
+  await expect(page.getByTestId('live-speed')).toHaveText('0WPM')
+  await expect(page.getByTestId('live-elapsed')).toHaveText('00:00')
+  await expect(page.locator('.live-stats')).toHaveAttribute('data-total-input', '0')
+  await page.getByRole('button', { name: '开始训练', exact: true }).click()
+  const prevented = await input.evaluate((node) => {
+    const data = new DataTransfer()
+    data.setData('text/plain', 'Hello world!')
+    return !node.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data }))
+  })
+  expect(prevented).toBe(true)
+  await expect(input).toHaveValue('')
+  await expect(page.locator('.live-stats')).toHaveAttribute('data-total-input', '0')
+  await expect(page.locator('.live-stats')).not.toContainText(/NaN|Infinity/)
+})

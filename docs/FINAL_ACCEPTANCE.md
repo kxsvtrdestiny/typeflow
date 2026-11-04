@@ -37,6 +37,6 @@
 
 本地数据不跨设备、不保证跨标签事务；旧历史不补造错误分布，跨午夜整次归完成日。自动化主要为 Chromium，未覆盖全部 Firefox/Safari/真机组合。系统静音无法可靠检测。
 
-本提交版保留源码、最新dist、锁文件、配置、全部必要测试与DOCX样本、生产验证脚本和原始DEVELOPMENT.md。imgs仅两张最终截图，本报告为唯一验收文档。没有修改前截图、旧品牌截图、阶段报告、Git记录文本或node_modules。
+本提交版保留源码、最新dist、锁文件、配置、全部必要测试与DOCX样本、生产验证脚本和原始DEVELOPMENT.md。imgs包含全部主要界面的最终截图，本报告为唯一验收文档。没有修改前截图、旧品牌截图、阶段报告、Git记录文本或node_modules。
 
 开发历史保留在 https://github.com/kxsvtrdestiny/typeflow/tree/work 。school-submission仅是下载分支；学校目录为week02/homework/typing，学校分支由老师规定或使用该仓库默认分支。
